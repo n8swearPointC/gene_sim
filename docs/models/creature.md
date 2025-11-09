@@ -1,0 +1,384 @@
+# Creature Model - Genealogical Simulation
+
+**Document Version:** 1.0  
+**Date:** November 8, 2025  
+**Status:** Draft - In Progress
+
+---
+
+## 1. Overview
+
+A **Creature** represents an individual organism in the simulation with a diploid genome, expressed traits (phenotypes), and lineage information. Creatures are the fundamental unit of the simulation - they reproduce, inherit genetic material, and persist across multiple generations (mutations in Phase 2).
+
+---
+
+## 2. Core Attributes
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `creature_id` | Integer | Unique identifier for the creature (auto-increment primary key) |
+| `simulation_id` | Integer | Foreign key to simulation this creature belongs to |
+| `birth_generation` | Integer | Generation when creature was born (fixed, never changes) |
+| `sex` | Enum | Biological sex: 'male', 'female', or NULL (if sex not modeled) |
+| `parent1_id` | Integer | Foreign key to first parent (NULL for founders) |
+| `parent2_id` | Integer | Foreign key to second parent (NULL for founders) |
+| `litters_remaining` | Integer | Number of litters remaining for this creature (starts at max value from simulation config, decrements per litter) |
+| `is_alive` | Boolean | Whether creature is alive in current generation (for mortality modeling) |
+
+**Design Notes:**
+- Creatures persist across generations (they don't die automatically each generation)
+- `birth_generation`: Fixed timestamp of when creature was born (stored in memory during simulation, persisted to database when creature is no longer relevant)
+- Age calculation: `age = current_generation - birth_generation` where `current_generation` is in-memory simulation state
+- Creatures have diploid genomes (two alleles per gene)
+- Genome stored as array: `genome[trait_id] = genotype_string` (e.g., "BB", "Bb", "bb")
+- Phenotypes derived from genotypes via trait configuration
+- Lineage tracked via parent references (enables forward/backward traversal)
+- Breeding eligibility: Age limit and litters_remaining limit defined at simulation level
+
+**Key Distinction: `birth_generation` vs `current_generation`**
+- **`birth_generation`**: The generation number when the creature was born. This is **stored in memory** during simulation and is fixed, never changes. When creatures are persisted to the database (after they can no longer reproduce), `birth_generation` is written to the database. Used to calculate age and determine breeding eligibility.
+- **`current_generation`**: The current generation number in the simulation (increments each breeding cycle). This is **stored in memory as a simulation state variable** (not in database). Used to calculate creature age: `age = current_generation - birth_generation`.
+- Creatures persist across multiple simulation generations in memory, so a creature born in generation 5 will still exist in memory in generation 10 (age = 5) until it can no longer reproduce.
+- `birth_generation` is persisted to the database when creatures are written; `current_generation` is always a runtime simulation state.
+
+---
+
+## 3. Genome Representation
+
+### 3.1 Diploid Structure
+
+Each creature has a diploid genome - two copies of each chromosome/gene. For each trait, the creature has a genotype (allele combination).
+
+**Genome Storage:**
+- In-memory: NumPy array or Python dict: `genome[trait_id] = genotype_string`
+- In database: Separate table with one row per trait per creature (normalized) - written when creature is persisted
+
+**Example Genome:**
+```python
+creature.genome = {
+    0: "BB",      # Trait 0 (Eye Color): homozygous dominant
+    1: "RW",      # Trait 1 (Flower Color): heterozygous (incomplete dominance)
+    2: "AB",      # Trait 2 (Blood Type): codominant
+    3: "Nc",      # Trait 3 (Color Blindness): sex-linked, female carrier
+    4: "H1H1_H2H2_H3h3"  # Trait 4 (Height): polygenic
+}
+```
+
+### 3.2 Genotype Format
+
+Genotypes are stored as strings matching the format defined in trait configuration:
+- **Simple Mendelian:** "BB", "Bb", "bb" (two alleles)
+- **Incomplete Dominance:** "RR", "RW", "WW" (two alleles)
+- **Codominance:** "AA", "AO", "BB", "BO", "AB", "OO" (two alleles)
+- **Sex-Linked:** "NN", "Nc", "cc" (females) or "N", "c" (males - single allele)
+- **Polygenic:** "L1L1_L2L2_L3L3" (multiple genes, underscore-separated)
+
+---
+
+## 4. Lineage & Pedigree
+
+### 4.1 Parent-Child Relationships
+
+Each creature (except founders) has exactly two parents:
+- `parent1_id`: Reference to first parent
+- `parent2_id`: Reference to second parent
+- Both parents must exist in the working pool (memory) and be alive at time of reproduction
+
+**Founders (Birth Generation 0):**
+- `parent1_id = NULL`
+- `parent2_id = NULL`
+- Created at simulation initialization with genotypes sampled from initial frequencies
+- `birth_generation = 0`
+
+### 4.2 Inbreeding Coefficient
+
+Can be calculated from pedigree:
+- Count shared ancestors between parent1 and parent2
+- Calculate probability of identical-by-descent alleles
+- Used by inbreeding avoidance breeders
+
+---
+
+## 5. Reproduction & Inheritance
+
+### 5.1 Gamete Formation
+
+When a creature reproduces, it produces gametes (sperm/egg) containing one allele per gene.
+
+**Process:**
+1. For each trait, randomly select one allele from the diploid pair
+2. Use seeded pRNG: `rng.choice([allele1, allele2])`
+3. Combine gametes from two parents to form offspring genotype
+
+**Example - Simple Mendelian:**
+```python
+# Parent 1: "Bb" → gamete: randomly "B" or "b"
+# Parent 2: "BB" → gamete: always "B"
+# Offspring: "BB" or "Bb" (50/50 chance)
+```
+
+### 5.2 Independent Assortment
+
+Genes on different chromosomes assort independently (Mendel's Law of Independent Assortment).
+
+**Implementation:**
+- Each trait's gamete selection is independent
+- No linkage modeled in Phase 1 (future: linkage groups)
+
+### 5.3 Sex-Linked Inheritance
+
+For sex-linked traits, inheritance depends on parent sex:
+- **X-linked (most common):**
+  - Female parent: Contributes one X chromosome allele (random selection)
+  - Male parent: Contributes X chromosome allele (only has one)
+  - Offspring sex determines genotype format (male = single allele, female = two alleles)
+
+**Example:**
+```python
+# Color blindness (X-linked recessive)
+# Female parent: "Nc" → gamete: "N" or "c" (50/50)
+# Male parent: "N" → gamete: "N"
+# Offspring:
+#   - If female: "NN" or "Nc" (50/50)
+#   - If male: "N" (always, since father contributes X)
+```
+
+---
+
+## 6. Breeding Eligibility & Limits
+
+### 6.1 Age-Based Limits
+
+Creatures can be excluded from breeding based on their age (number of generations since birth).
+
+**Age Calculation:**
+```python
+age = current_simulation_generation - creature.birth_generation
+```
+
+**Age Limit:**
+- Defined at simulation level (creature archetype configuration)
+- Applies to **both males and females**
+- If `age > max_age`, creature is not eligible for breeding
+- Separate age limits can be configured for males and females
+
+### 6.2 Litters Remaining Limits
+
+Creatures can be excluded from breeding based on how many litters they have remaining.
+
+**Litter Tracking:**
+- `litters_remaining`: Integer counter, starts at the maximum value defined in simulation configuration
+- Decrements by 1 each time creature produces a litter
+- Only applies to **females** (males don't produce litters)
+- Updated when female reproduces
+
+**Litter Limit:**
+- Defined at simulation level (creature archetype configuration)
+- Only applies to **females**
+- If `litters_remaining <= 0`, female is not eligible for breeding
+- Males have no litter limit (unless specified in simulation config)
+
+**Design Note:** These limits are part of the creature archetype defined in the simulation configuration, allowing different species/life histories to be modeled.
+
+---
+
+## 7. Database Schema (SQLite)
+
+### 7.1 Creatures Table
+
+```sql
+-- Creatures Table
+-- Stores basic creature information and lineage
+CREATE TABLE creatures (
+    creature_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    simulation_id INTEGER NOT NULL,
+    birth_generation INTEGER NOT NULL CHECK(birth_generation >= 0),
+    sex TEXT CHECK(sex IN ('male', 'female')) NULL,
+    parent1_id INTEGER NULL,
+    parent2_id INTEGER NULL,
+    litters_remaining INTEGER NOT NULL CHECK(litters_remaining >= 0),
+    is_alive BOOLEAN DEFAULT 1,
+    FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id) ON DELETE CASCADE,
+    FOREIGN KEY (parent1_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
+    FOREIGN KEY (parent2_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
+    CHECK(parent1_id IS NULL = (birth_generation = 0)),  -- Founders have no parents
+    CHECK(parent2_id IS NULL = (birth_generation = 0))
+);
+
+-- Indexes for efficient querying
+CREATE INDEX idx_creatures_birth_generation ON creatures(simulation_id, birth_generation);
+CREATE INDEX idx_creatures_parents ON creatures(parent1_id, parent2_id);
+CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex, birth_generation, litters_remaining, is_alive);
+```
+
+### 7.2 Genotypes Table (Creature Genotypes)
+
+```sql
+-- Creature Genotypes Table
+-- Stores genotype for each trait for each creature (normalized: one row per trait per creature)
+CREATE TABLE creature_genotypes (
+    creature_id INTEGER NOT NULL,
+    trait_id INTEGER NOT NULL CHECK(trait_id >= 0),
+    genotype TEXT NOT NULL,
+    FOREIGN KEY (creature_id) REFERENCES creatures(creature_id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES traits(trait_id) ON DELETE CASCADE,
+    PRIMARY KEY (creature_id, trait_id)
+);
+
+CREATE INDEX idx_creature_genotypes_trait ON creature_genotypes(trait_id);
+CREATE INDEX idx_creature_genotypes_genotype ON creature_genotypes(genotype);
+CREATE INDEX idx_creature_genotypes_creature ON creature_genotypes(creature_id);
+```
+
+**Design Notes:**
+- Normalized approach: one row per trait per creature
+- Better query performance (indexed trait_id and genotype)
+- Easier to query "all creatures with genotype X for trait Y"
+- Supports efficient aggregation queries
+- More rows than denormalized approach, but SQLite handles this well
+
+### 7.3 Example Data
+
+```sql
+-- Example: Persisting creatures to database after they can no longer reproduce
+-- Founder creature (birth_generation 0) - persisted after becoming ineligible
+INSERT INTO creatures (simulation_id, birth_generation, sex, parent1_id, parent2_id, litters_remaining)
+VALUES (1, 0, 'male', NULL, NULL, 0);
+
+INSERT INTO creature_genotypes (creature_id, trait_id, genotype) VALUES
+(1, 0, 'BB'),  -- Eye Color: Brown
+(1, 1, 'RR'),  -- Flower Color: Red
+(1, 2, 'AA');  -- Blood Type: A
+
+-- Offspring creature (birth_generation 1) - persisted after litters_remaining reached 0
+INSERT INTO creatures (simulation_id, birth_generation, sex, parent1_id, parent2_id, litters_remaining)
+VALUES (1, 1, 'female', 1, 2, 0);  -- litters_remaining = 0 when persisted
+
+INSERT INTO creature_genotypes (creature_id, trait_id, genotype) VALUES
+(2, 0, 'Bb'),  -- Eye Color: Brown (heterozygous)
+(2, 1, 'RW'),  -- Flower Color: Pink (incomplete dominance)
+(2, 2, 'AO');  -- Blood Type: A (heterozygous)
+
+-- Note: During simulation, litters_remaining is decremented in memory.
+-- The database reflects the final state when the creature is persisted.
+```
+
+---
+
+## 8. Performance Considerations
+
+### 8.1 Batch Operations
+
+When persisting creatures to the database (after they can no longer reproduce):
+- Use batch INSERT statements for efficient writes
+- Insert creatures first, then genotypes in separate batch
+- Use transactions for atomicity
+
+```python
+# Example batch insert when persisting creatures that are no longer relevant
+creatures_data = [(sim_id, birth_gen, sex, p1, p2, litters_remaining) for ...]  # Creatures being removed from working pool
+cursor.executemany(
+    "INSERT INTO creatures (simulation_id, birth_generation, sex, parent1_id, parent2_id, litters_remaining) VALUES (?, ?, ?, ?, ?, ?)",
+    creatures_data
+)
+
+genotypes_data = [(creature_id, trait_id, genotype) for ...]
+cursor.executemany(
+    "INSERT INTO creature_genotypes (creature_id, trait_id, genotype) VALUES (?, ?, ?)",
+    genotypes_data
+)
+```
+
+### 8.2 Query Optimization
+
+**Note:** These indexes are for querying historical data from the database after creatures have been persisted. During simulation, creatures are accessed directly from the in-memory working pool.
+
+**Creatures Table Indexes:**
+- `idx_creatures_birth_generation` on (simulation_id, birth_generation) for time-series queries on historical data
+- `idx_creatures_parents` on (parent1_id, parent2_id) for lineage queries on persisted creatures
+- `idx_creatures_breeding_eligibility` on (simulation_id, sex, birth_generation, litters_remaining, is_alive) for analyzing breeding patterns in historical data
+
+**Creature Genotypes Table Indexes:**
+- `idx_creature_genotypes_trait` on (trait_id) for trait-based queries on historical data
+- `idx_creature_genotypes_genotype` on (genotype) for genotype frequency analysis
+- `idx_creature_genotypes_creature` on (creature_id) for retrieving complete genomes of persisted creatures
+
+- Use EXPLAIN QUERY PLAN to verify index usage when querying historical data
+
+### 8.3 Memory Management
+
+**Working Pool Strategy:**
+- All creatures that can reproduce are kept in memory as part of the working pool
+- Creatures remain in memory while they are eligible for breeding (age and litters_remaining checks pass)
+- This allows fast access for breeding operations without database queries
+
+**Persistence Strategy:**
+- After reproduction occurs, creatures that can no longer reproduce are identified (age limit exceeded or litters_remaining <= 0)
+- Before removing creatures from working memory:
+  1. Run aggregations for the current generation (genotype frequencies, phenotype distributions, etc.)
+  2. Write aggregation results to the SQL database
+  3. Write the creatures themselves to the SQL database (creatures table and creature_genotypes table)
+- After persistence, remove creatures from working memory
+
+**Generation Cycle:**
+1. Filter working pool for eligible creatures (age limits, litters_remaining, is_alive)
+2. Breeder selects pairs from eligible creatures
+3. Reproduction occurs (offspring created)
+4. Identify creatures that can no longer reproduce
+5. Persist ineligible creatures to database
+6. Remove ineligible creatures from working pool
+
+**Benefits:**
+- Fast breeding operations (no database queries for eligible creatures)
+- Reduced memory footprint (only active breeding pool in memory)
+- Historical data preserved in database for analysis
+- Generation-level aggregations computed efficiently before persistence
+
+---
+
+## 9. Validation Rules
+
+When creating or updating creatures:
+
+1. **Birth Generation Consistency:**
+   - Founders: birth_generation = 0, parent1_id = NULL, parent2_id = NULL
+   - Offspring: birth_generation > 0, both parents must exist in the working pool (memory) and be alive
+
+2. **Genotype Validity:**
+   - Genotype string must match format defined in trait configuration
+   - For sex-linked traits, genotype format must match creature's sex
+   - All traits must have genotypes (no NULL genotypes)
+
+3. **Sex-Linked Constraints:**
+   - Sex-linked trait genotypes must match sex:
+     - Female: Two alleles (e.g., "NN", "Nc", "cc")
+     - Male: Single allele (e.g., "N", "c")
+
+4. **Litters Remaining:**
+   - Must be >= 0
+   - Decrements when female reproduces
+   - Starts at maximum value defined in simulation configuration
+   - Only applies to females (males can have 0, but it's not used)
+
+5. **Parent Validation:**
+   - parent1_id and parent2_id must be different (no self-fertilization)
+   - Parents must exist in the working pool (memory) and be alive
+   - Parents' birth_generation must be < offspring's birth_generation
+
+6. **Breeding Eligibility:**
+   - **For Females:**
+     - Age check: `current_generation - birth_generation <= max_female_age` 
+       - `current_generation` is from memory (simulation state)
+       - `birth_generation` is from memory (creature attribute in working pool)
+       - `max_female_age` is from simulation config
+     - Litter check: `litters_remaining > 0` (creature attribute in working pool)
+     - Both checks must pass for female to be eligible
+   - **For Males:**
+     - Age check: `current_generation - birth_generation <= max_male_age` 
+       - `current_generation` is from memory (simulation state)
+       - `birth_generation` is from memory (creature attribute in working pool)
+       - `max_male_age` is from simulation config
+
+---
+
+**Status:** Draft - Ready for review. Next: Breeder Model specification.
