@@ -26,6 +26,7 @@ A **Creature** represents an individual organism in the simulation with a diploi
 | `litters_remaining` | Integer | Number of litters remaining for this creature (starts at max value from simulation config, decrements per litter) |
 | `lifespan` | Integer | Individual lifespan for this creature (sampled from lifespan range in simulation config at birth) |
 | `is_alive` | Boolean | Whether creature is alive in current generation (for mortality modeling) |
+| `is_homed` | Boolean | Whether creature has been placed in a pet home (spayed/neutered, removed from breeding pool but still alive) |
 
 **Design Notes:**
 - **CRITICAL: All creatures are persisted to the database immediately upon creation** (see section 8.3)
@@ -213,6 +214,52 @@ Creatures can be excluded from breeding based on how many litters they have rema
 
 **Design Note:** These limits are part of the creature archetype defined in the simulation configuration, allowing different species/life histories to be modeled.
 
+### 6.3 Homing (Spay/Neuter and Pet Placement)
+
+Creatures can be removed from the breeding pool through a "homing" process that simulates spaying/neutering and placement in pet homes.
+
+**Homing Process:**
+- Creatures are marked with `is_homed = True`
+- Homed creatures remain **alive** (`is_alive = True`) until they reach their natural lifespan
+- Homed creatures are **excluded from breeding eligibility** (not in the breeding pool)
+- Homing is permanent - once homed, a creature cannot return to the breeding pool
+
+**Two Types of Homing:**
+
+1. **Offspring Placement (Birth):**
+   - All offspring are created and added to the population as alive
+   - Breeders select which offspring to keep for breeding (replacements)
+   - Unclaimed offspring are immediately marked as `is_homed = True`
+   - These creatures live out their natural lifespan but never breed
+
+2. **Adult Homing (During Breeding Cycles):**
+   - Each cycle, 80% of non-breeding eligible adults can be randomly selected for homing
+   - Excludes creatures that bred that cycle (they're valuable breeders)
+   - Homed adults remain alive but are removed from breeding pool
+   - Simulates responsible breeding programs placing excess adults
+
+**Purpose:**
+- Keeps breeding pool size manageable
+- Simulates realistic breeding program dynamics
+- All creatures are tracked (alive or dead) for complete lineage records
+- Prevents population explosion while maintaining genetic diversity
+
+**Example:**
+```python
+# Offspring created at birth
+offspring = create_offspring(parent1, parent2, ...)
+
+# Breeder decides to keep this one for breeding
+if breeder_needs_replacement:
+    keep_for_breeding(offspring)  # is_homed = False (default)
+else:
+    home_offspring(offspring)      # is_homed = True
+
+# Later, non-breeding adult
+if random.random() < 0.8 and not bred_this_cycle:
+    home_adult(creature)           # is_homed = True
+```
+
 ---
 
 ## 7. Database Schema (SQLite)
@@ -233,6 +280,7 @@ CREATE TABLE creatures (
     litters_remaining INTEGER NOT NULL CHECK(litters_remaining >= 0),
     lifespan INTEGER NOT NULL CHECK(lifespan > 0),
     is_alive BOOLEAN DEFAULT 1,
+    is_homed BOOLEAN DEFAULT 0,  -- True if placed in pet home (spayed/neutered)
     FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id) ON DELETE CASCADE,
     FOREIGN KEY (parent1_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
     FOREIGN KEY (parent2_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
@@ -243,7 +291,7 @@ CREATE TABLE creatures (
 -- Indexes for efficient querying
 CREATE INDEX idx_creatures_birth_generation ON creatures(simulation_id, birth_generation);
 CREATE INDEX idx_creatures_parents ON creatures(parent1_id, parent2_id);
-CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex, birth_generation, litters_remaining, is_alive);
+CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex, birth_generation, litters_remaining, is_alive, is_homed);
 CREATE INDEX idx_creatures_inbreeding ON creatures(simulation_id, inbreeding_coefficient);
 ```
 

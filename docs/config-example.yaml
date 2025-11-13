@@ -76,11 +76,12 @@ undesirable_genotypes:
 # Ownership Rules:
 # - Founders are assigned to breeders evenly at initialization
 # - Offspring inherit ownership from the female parent's breeder
-# - Ownership can transfer randomly between breeders (2-3 owners per creature on average)
-# - Breeders give away ALL offspring unless a parent is nearing end of reproduction
-#   (within 2 generations of max breeding age, or females with ≤1 litter remaining)
-#   In that case, the breeder keeps ONE offspring as a replacement
-# - This ownership-based removal helps stabilize population growth
+# - Transfers occur AFTER offspring are determined, only once per cycle
+# - No transfer until creature has produced offspring
+# - No transfer if creature is gestating or nursing
+# - Kennel clubs: transfer males regularly, females ~3x in lifetime; won't accept mill-origin creatures
+# - Mills: low transfer probability; may replace breeding females with offspring
+# - Transfer restrictions ensure realistic breeding program dynamics
 breeders:
   # Number of breeders of each type (actual counts, not percentages)
   # Each breeder is assigned an ID and persists to the database
@@ -102,6 +103,10 @@ breeders:
   # If true, ALL breeders will filter out creatures with undesirable phenotypes/genotypes
   avoid_undesirable_phenotypes: false  # If true, all breeders avoid undesirable phenotypes
   avoid_undesirable_genotypes: false   # If true, all breeders avoid undesirable genotypes
+  
+  # Ownership transfer configuration
+  kennel_female_transfer_count: 3      # Number of times kennel females are transferred in lifetime (default: 3)
+  mill_transfer_probability: 0.02      # Low probability for mill transfers per cycle (default: 0.02, vs 0.12 baseline)
 
 # Trait definitions
 traits:

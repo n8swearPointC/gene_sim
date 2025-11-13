@@ -55,6 +55,9 @@ class BreederConfig:
     # Configuration for avoiding undesirable traits
     avoid_undesirable_phenotypes: bool = False  # If True, all breeders avoid undesirable phenotypes
     avoid_undesirable_genotypes: bool = False  # If True, all breeders avoid undesirable genotypes
+    # Ownership transfer configuration
+    kennel_female_transfer_count: int = 3  # Number of times kennel females are transferred in lifetime
+    mill_transfer_probability: float = 0.02  # Low probability for mill transfers (vs 0.12 baseline)
 
 
 @dataclass
@@ -68,7 +71,8 @@ class SimulationConfig:
     creature_archetype: CreatureArchetypeConfig
     target_phenotypes: List[Dict[str, Any]]
     undesirable_phenotypes: List[Dict[str, Any]]  # List of {trait_id, phenotype} dicts
-    undesirable_genotypes: List[Dict[str, Any]]  # List of {trait_id, genotype} dicts
+    undesirable_genotypes: List[Dict[str, Any]]  # List of {trait_id, genotype} dicts (legacy)
+    genotype_preferences: List[Dict[str, Any]]  # List of {trait_id, optimal, acceptable, undesirable} dicts
     breeders: BreederConfig
     traits: List[TraitConfig]
     raw_config: Dict[str, Any]  # Store raw config for database storage
@@ -476,7 +480,9 @@ def build_config(raw_config: Dict[str, Any]) -> SimulationConfig:
         inbreeding_avoidance=breeders['inbreeding_avoidance'],
         kennel_club=breeders['kennel_club'],
         mill=breeders['mill'],
-        kennel_club_config=breeders.get('kennel_club_config')
+        kennel_club_config=breeders.get('kennel_club_config'),
+        kennel_female_transfer_count=breeders.get('kennel_female_transfer_count', 3),
+        mill_transfer_probability=breeders.get('mill_transfer_probability', 0.02)
     )
     
     traits = [
@@ -492,6 +498,7 @@ def build_config(raw_config: Dict[str, Any]) -> SimulationConfig:
     target_phenotypes = raw_config.get('target_phenotypes', [])
     undesirable_phenotypes = raw_config.get('undesirable_phenotypes', [])
     undesirable_genotypes = raw_config.get('undesirable_genotypes', [])
+    genotype_preferences = raw_config.get('genotype_preferences', [])
     
     # Calculate cycles from years using menstrual cycle length
     years = raw_config['years']
@@ -513,6 +520,7 @@ def build_config(raw_config: Dict[str, Any]) -> SimulationConfig:
         target_phenotypes=target_phenotypes,
         undesirable_phenotypes=undesirable_phenotypes,
         undesirable_genotypes=undesirable_genotypes,
+        genotype_preferences=genotype_preferences,
         breeders=breeder_config,
         traits=traits,
         raw_config=raw_config,

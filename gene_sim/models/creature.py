@@ -38,7 +38,7 @@ class Creature:
         
         Args:
             simulation_id: ID of simulation this creature belongs to
-            birth_cycle: Cycle when creature was born (0 for founders)
+            birth_cycle: Cycle when creature was born (can be negative for founders with initial ages)
             sex: 'male', 'female', or None
             genome: List of genotype strings indexed by trait_id (0-99)
             parent1_id: ID of first parent (None for founders)
@@ -54,7 +54,7 @@ class Creature:
             max_fertility_age_cycle: Cycle when fertility window closes
             gestation_end_cycle: Cycle when current gestation ends (None if not gestating)
             nursing_end_cycle: Cycle when current nursing period ends (None if not nursing)
-            generation: Lineage depth (max(parent1.generation, parent2.generation) + 1)
+            generation: Lineage depth (0 for founders, max(parent1.generation, parent2.generation) + 1 for offspring)
         """
         self.simulation_id = simulation_id
         self.birth_cycle = birth_cycle
@@ -77,12 +77,19 @@ class Creature:
         self.nursing_end_cycle = nursing_end_cycle
         self.generation = generation  # Lineage depth
         
-        # Validate founders have no parents
-        if birth_cycle == 0:
-            if parent1_id is not None or parent2_id is not None:
-                raise ValueError("Founders (birth_cycle=0) must have no parents")
+        # Ownership transfer tracking
+        self.has_produced_offspring = False  # Set to True when creature has bred
+        self.transfer_count = 0  # Track number of times transferred
+        self.is_homed = False  # True if creature has been placed in a pet home (spayed/neutered)
+        
+        # Validate founders have no parents (generation 0)
+        is_founder = parent1_id is None and parent2_id is None
+        if is_founder:
             if conception_cycle is not None:
                 raise ValueError("Founders cannot have a conception_cycle")
+            # Set generation to 0 for founders
+            if self.generation is None:
+                self.generation = 0
         else:
             # For offspring, parent IDs can be None initially (in-memory creatures)
             # They will be set when parents are persisted to database

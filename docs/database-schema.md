@@ -100,6 +100,7 @@ CREATE TABLE creatures (
     litters_remaining INTEGER NOT NULL CHECK(litters_remaining >= 0),
     lifespan INTEGER NOT NULL CHECK(lifespan > 0),
     is_alive BOOLEAN DEFAULT 1,
+    is_homed BOOLEAN DEFAULT 0,  -- True if placed in pet home (spayed/neutered, removed from breeding pool)
     FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id) ON DELETE CASCADE,
     FOREIGN KEY (parent1_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
     FOREIGN KEY (parent2_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
@@ -109,7 +110,7 @@ CREATE TABLE creatures (
 
 CREATE INDEX idx_creatures_birth_generation ON creatures(simulation_id, birth_generation);
 CREATE INDEX idx_creatures_parents ON creatures(parent1_id, parent2_id);
-CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex, birth_generation, litters_remaining, is_alive);
+CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex, birth_generation, litters_remaining, is_alive, is_homed);
 CREATE INDEX idx_creatures_inbreeding ON creatures(simulation_id, inbreeding_coefficient);
 ```
 

@@ -1,6 +1,6 @@
 # Quick test simulation configuration
 seed: 12345
-years: 200  # Number of years to simulate (cycles will be calculated from this)
+years: 2  # Number of years to simulate (cycles will be calculated from this)
 mode: monitor  # Output mode: 'quiet', 'monitor', or 'debug'
 initial_population_size: 100
 
@@ -12,16 +12,16 @@ creature_archetype:
   # Cycle-based configuration
   # Lifespan range in years (converted to cycles automatically)
   lifespan:
-    min: 13
-    max: 20
+    min: 3.25    # Reduced from 13 (1/4 of original)
+    max: 5       # Reduced from 20 (1/4 of original)
   sexual_maturity_months: 6
   max_fertility_age_years:
-    male: 18
-    female: 17
+    male: 4.5    # Reduced from 18 (1/4 of original)
+    female: 4.25 # Reduced from 17 (1/4 of original)
   gestation_period_days: 65
   nursing_period_days: 28
   menstrual_cycle_days: 24
-  nearing_end_cycles: 4
+  nearing_end_cycles: 12  # Reduced from 50 (~3/4 year warning)
   remove_ineligible_immediately: false
   # Litter size range (number of offspring per breeding pair)
   litter_size:
@@ -40,14 +40,28 @@ undesirable_phenotypes:
   # - trait_id: 0
   #   phenotype: "Brown"  # Avoid creatures with brown coat color
 
-undesirable_genotypes: 
+# Genotype preferences for kennel club breeders (tiered system)
+# Kennels will prefer: optimal > acceptable > undesirable
+# This allows kennels to breed with "acceptable" genotypes (Ll) to produce "optimal" (LL)
+# while avoiding "undesirable" (ll) when possible
+genotype_preferences:
   - trait_id: 1
-    genotype: "Ll"
-  - trait_id: 1
-    genotype: "ll"
+    optimal:      # Best genotypes - actively breed toward these
+      - "LL"
+    acceptable:   # Temporary genotypes - use until optimal available, then replace
+      - "Ll"
+    undesirable:  # Avoid these genotypes when possible
+      - "ll"
   # Example:
   # - trait_id: 0
-  #   genotype: "bb"  # Avoid creatures with bb genotype
+  #   optimal: ["BB"]
+  #   acceptable: ["Bb"]
+  #   undesirable: ["bb"]
+
+# Legacy format (still supported for backward compatibility)
+# undesirable_genotypes: 
+#   - trait_id: 1
+#     genotype: "ll"
 
 # Breeder configuration
 # Breeders own creatures and select mating pairs
@@ -59,8 +73,8 @@ undesirable_genotypes:
 breeders:
   random: 0
   inbreeding_avoidance: 0
-  kennel_club: 300
-  mill: 400
+  kennel_club: 5
+  mill: 10
 
 traits:
   - trait_id: 0
@@ -83,13 +97,13 @@ traits:
     genotypes:
       - genotype: "LL"
         phenotype: "Large"
-        initial_freq: 0.25
+        initial_freq: 0
       - genotype: "Ll"
         phenotype: "Large"
-        initial_freq: 0.50
+        initial_freq: 0.25
       - genotype: "ll"
         phenotype: "Small"
-        initial_freq: 0.25
+        initial_freq: 0.75
   
   - trait_id: 2
     name: "Eye Color"

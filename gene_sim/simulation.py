@@ -201,6 +201,7 @@ class Simulation:
                 required_phenotype_ranges=kennel_config.get('required_phenotype_ranges', []),
                 undesirable_phenotypes=self.config.undesirable_phenotypes,
                 undesirable_genotypes=self.config.undesirable_genotypes,
+                genotype_preferences=self.config.genotype_preferences,
                 avoid_undesirable_phenotypes=self.config.breeders.avoid_undesirable_phenotypes,
                 avoid_undesirable_genotypes=self.config.breeders.avoid_undesirable_genotypes
             )
@@ -276,13 +277,18 @@ class Simulation:
                 self.config.creature_archetype.lifespan_cycles_max + 1
             )
             
+            # Give founders a random age between 1 cycle and their lifespan
+            # This ensures founding population has age diversity
+            current_age_cycles = self.rng.integers(1, lifespan + 1)
+            birth_cycle = -current_age_cycles  # Negative birth_cycle means born before simulation start
+            
             # Assign founder to a breeder (distribute evenly)
             breeder_index = i % len(self.breeders) if self.breeders else 0
             breeder_id = self.breeders[breeder_index].breeder_id if self.breeders else None
             
             creature = Creature(
                 simulation_id=0,  # Will be updated after simulation record created
-                birth_cycle=0,
+                birth_cycle=birth_cycle,
                 sex=sex,
                 genome=genome,
                 parent1_id=None,
@@ -323,8 +329,8 @@ class Simulation:
         This method persists all founders right after they are created and before any
         breeding occurs.
         """
-        # Get all founders (birth_cycle = 0)
-        founders = [c for c in self.population.creatures if c.birth_cycle == 0]
+        # Get all founders (generation == 0)
+        founders = [c for c in self.population.creatures if c.generation == 0]
         
         # Update simulation_id for all founders
         for creature in founders:
@@ -468,15 +474,26 @@ class Simulation:
         """Print monitor mode output for current cycle."""
         penetration = self._calculate_desired_trait_penetration()
         
-        # Print progress line with carriage return to overwrite (for live updates)
-        # Use \r to overwrite the same line, or \n for new lines
-        print(f"\rCycle {cycle_num:5d}/{self.config.cycles-1:5d} | "
-              f"Population: {stats.population_size:5d} | "
-              f"Desired Trait: {penetration:5.1f}% | "
+        # Get total creatures created from database for this simulation
+        cursor = self.db_conn.cursor()
+        cursor.execute("""
+            SELECT COUNT(*) FROM creatures WHERE simulation_id = ?
+        """, (self.simulation_id,))
+        total_created = cursor.fetchone()[0]
+        
+        breeding_pool = stats.eligible_males + stats.eligible_females
+        
+        # Print progress line with newline to persist output
+        print(f"Cycle {cycle_num:5d}/{self.config.cycles-1:5d} | "
+              f"Created: {total_created:5d} | "
+              f"Living: {stats.population_size:5d} | "
+              f"Pool: {breeding_pool:4d} | "
+              f"Desired: {penetration:5.1f}% | "
               f"Births: {stats.births:4d} | "
               f"Deaths: {stats.deaths:4d} | "
-              f"Eligible M: {stats.eligible_males:4d} | "
-              f"Eligible F: {stats.eligible_females:4d}", end='', flush=True)
+              f"Homed: {stats.homed_out:4d} | "
+              f"M: {stats.eligible_males:4d} | "
+              f"F: {stats.eligible_females:4d}")
     
     def _finalize_simulation(self, end_time: datetime, final_population_size: int) -> None:
         """Finalize simulation record."""

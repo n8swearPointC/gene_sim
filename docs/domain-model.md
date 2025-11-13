@@ -36,9 +36,9 @@ Genetic characteristics that can be inherited. Supports multiple inheritance pat
 **See:** [models/trait.md](models/trait.md)
 
 ### 2.2 Creature
-Individual organism with a genome and expressed traits. Contains genetic material (genotype) and observable characteristics (phenotype). Creatures persist across multiple generations.
+Individual organism with a genome and expressed traits. Contains genetic material (genotype) and observable characteristics (phenotype). Creatures persist across multiple generations and can be placed in pet homes (homed) while remaining alive.
 
-**Key Concepts:** Genome, genotype, phenotype, lineage, birth_generation, litter_count, breeding eligibility
+**Key Concepts:** Genome, genotype, phenotype, lineage, birth_generation, litter_count, breeding eligibility, homing (spay/neuter and pet placement)
 
 **See:** [models/creature.md](models/creature.md)
 

@@ -24,6 +24,8 @@ class Population:
         """
         Get list of eligible male creatures for breeding.
         
+        Excludes creatures that have been homed (placed in pet homes).
+        
         Args:
             current_cycle: Current simulation cycle
             config: Simulation configuration
@@ -33,7 +35,7 @@ class Population:
         """
         return [
             c for c in self.creatures
-            if c.sex == 'male' and c.is_breeding_eligible(current_cycle, config)
+            if c.sex == 'male' and not c.is_homed and c.is_breeding_eligible(current_cycle, config)
         ]
     
     def get_eligible_females(
@@ -44,6 +46,8 @@ class Population:
         """
         Get list of eligible female creatures for breeding.
         
+        Excludes creatures that have been homed (placed in pet homes).
+        
         Args:
             current_cycle: Current simulation cycle
             config: Simulation configuration
@@ -53,7 +57,7 @@ class Population:
         """
         return [
             c for c in self.creatures
-            if c.sex == 'female' and c.is_breeding_eligible(current_cycle, config)
+            if c.sex == 'female' and not c.is_homed and c.is_breeding_eligible(current_cycle, config)
         ]
     
     def add_creatures(self, creatures: List[Creature], current_cycle: int) -> None:
@@ -102,15 +106,14 @@ class Population:
             simulation_id: Simulation ID (unused, kept for API compatibility)
         """
         aged_out = self.get_aged_out_creatures()
-        if not aged_out:
-            return
         
-        # All creatures are already persisted immediately upon creation,
-        # so we only need to remove them from the working pool
-        creature_ids_to_remove = {c.creature_id for c in aged_out if c.creature_id is not None}
-        self.creatures = [c for c in self.creatures if c.creature_id not in creature_ids_to_remove]
+        if aged_out:
+            # All creatures are already persisted immediately upon creation,
+            # so we only need to remove them from the working pool
+            creature_ids_to_remove = {c.creature_id for c in aged_out if c.creature_id is not None}
+            self.creatures = [c for c in self.creatures if c.creature_id not in creature_ids_to_remove]
         
-        # Slice off age_out[0]
+        # Always shift age_out list, even if no creatures aged out this cycle
         if len(self.age_out) > 0:
             self.age_out = self.age_out[1:]
     
@@ -334,10 +337,10 @@ class Population:
             parent1_id = creature.parent1_id
             parent2_id = creature.parent2_id
             
-            # Ensure parent IDs match birth_cycle/birth_generation:
-            # - Founders (birth_cycle = 0) must have NULL parent IDs
-            # - Offspring (birth_cycle > 0) must have non-NULL parent IDs
-            if creature.birth_cycle == 0:
+            # Ensure parent IDs match founder/offspring status:
+            # - Founders (generation == 0) must have NULL parent IDs
+            # - Offspring (generation > 0) must have non-NULL parent IDs
+            if creature.generation == 0:
                 # Founders: ensure parent IDs are NULL
                 parent1_id = None
                 parent2_id = None
@@ -356,8 +359,8 @@ class Population:
                     simulation_id, birth_cycle, sex, parent1_id, parent2_id, breeder_id,
                     produced_by_breeder_id, inbreeding_coefficient, lifespan, is_alive,
                     conception_cycle, sexual_maturity_cycle, max_fertility_age_cycle,
-                    gestation_end_cycle, nursing_end_cycle, generation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    gestation_end_cycle, nursing_end_cycle, generation, is_homed
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 simulation_id,
                 creature.birth_cycle,
@@ -374,7 +377,8 @@ class Population:
                 creature.max_fertility_age_cycle,
                 creature.gestation_end_cycle,
                 creature.nursing_end_cycle,
-                creature.generation
+                creature.generation,
+                creature.is_homed
             ))
             creature_id = cursor.lastrowid
             creature.creature_id = creature_id

@@ -89,6 +89,41 @@ class Breeder(ABC):
             filtered.append(creature)
         return filtered
     
+    def select_replacement(
+        self,
+        candidates: List['Creature'],
+        sex: str,
+        traits: List,
+        rng: np.random.Generator
+    ) -> Optional['Creature']:
+        """
+        Select best replacement creature from candidates.
+        Base implementation: random selection after filtering undesirables.
+        
+        Args:
+            candidates: List of potential replacement creatures
+            sex: Required sex ('male' or 'female')
+            traits: List of trait definitions
+            rng: Random number generator
+            
+        Returns:
+            Best replacement creature, or None if no suitable candidates
+        """
+        # Filter by sex
+        sex_filtered = [c for c in candidates if c.sex == sex]
+        if not sex_filtered:
+            return None
+        
+        # Filter out undesirables
+        filtered = self._filter_undesirable(sex_filtered, traits)
+        
+        # If filtering removed all candidates, use sex-filtered list
+        if not filtered:
+            filtered = sex_filtered
+        
+        # Random selection
+        return rng.choice(filtered) if filtered else None
+    
     @abstractmethod
     def select_pairs(
         self,
@@ -231,6 +266,7 @@ class KennelClubBreeder(Breeder):
         required_phenotype_ranges: Optional[List[dict]] = None,
         undesirable_phenotypes: Optional[List[dict]] = None,
         undesirable_genotypes: Optional[List[dict]] = None,
+        genotype_preferences: Optional[List[dict]] = None,
         avoid_undesirable_phenotypes: bool = False,
         avoid_undesirable_genotypes: bool = False
     ):
@@ -242,7 +278,8 @@ class KennelClubBreeder(Breeder):
             max_inbreeding_coefficient: Maximum allowed inbreeding (optional)
             required_phenotype_ranges: List of {trait_id, min, max} dicts (optional)
             undesirable_phenotypes: List of {trait_id, phenotype} dicts to avoid
-            undesirable_genotypes: List of {trait_id, genotype} dicts to avoid
+            undesirable_genotypes: List of {trait_id, genotype} dicts to avoid (legacy)
+            genotype_preferences: List of {trait_id, optimal, acceptable, undesirable} dicts
             avoid_undesirable_phenotypes: If True, filter out creatures with undesirable phenotypes
             avoid_undesirable_genotypes: If True, filter out creatures with undesirable genotypes
         """
@@ -250,6 +287,52 @@ class KennelClubBreeder(Breeder):
         self.target_phenotypes = target_phenotypes
         self.max_inbreeding_coefficient = max_inbreeding_coefficient
         self.required_phenotype_ranges = required_phenotype_ranges or []
+        self.genotype_preferences = genotype_preferences or []
+    
+    def _get_genotype_tier(self, creature: 'Creature', trait_id: int) -> int:
+        """
+        Get preference tier for a creature's genotype.
+        
+        Returns:
+            0 = optimal, 1 = acceptable, 2 = undesirable, 3 = not configured
+        """
+        if not self.genotype_preferences:
+            return 3  # Not configured, use legacy behavior
+        
+        # Find preference config for this trait
+        pref = next((p for p in self.genotype_preferences if p['trait_id'] == trait_id), None)
+        if not pref:
+            return 3  # Not configured for this trait
+        
+        if trait_id >= len(creature.genome) or creature.genome[trait_id] is None:
+            return 3
+        
+        genotype = creature.genome[trait_id]
+        
+        if genotype in pref.get('optimal', []):
+            return 0
+        elif genotype in pref.get('acceptable', []):
+            return 1
+        elif genotype in pref.get('undesirable', []):
+            return 2
+        else:
+            return 3
+    
+    def _has_acceptable_or_better_genotypes(self, creature: 'Creature') -> bool:
+        """Check if creature has only optimal or acceptable genotypes (no undesirable)."""
+        if not self.genotype_preferences:
+            return not self._has_undesirable_genotype(creature)  # Legacy behavior
+        
+        for pref in self.genotype_preferences:
+            trait_id = pref['trait_id']
+            tier = self._get_genotype_tier(creature, trait_id)
+            if tier == 2:  # Undesirable
+                return False
+        return True
+    
+    def _has_optimal_genotype(self, creature: 'Creature', trait_id: int) -> bool:
+        """Check if creature has optimal genotype for a specific trait."""
+        return self._get_genotype_tier(creature, trait_id) == 0
     
     def _matches_target_phenotypes(self, creature: 'Creature', traits: List) -> bool:
         """Check if creature matches target phenotypes."""
@@ -308,39 +391,72 @@ class KennelClubBreeder(Breeder):
         rng: np.random.Generator,
         traits: List = None
     ) -> List[Tuple['Creature', 'Creature']]:
-        """Select pairs based on target phenotypes with guidelines."""
+        """
+        Select pairs based on target phenotypes with tiered genotype preferences.
+        
+        Preference order:
+        1. Optimal genotypes only (e.g., LL)
+        2. Acceptable genotypes (e.g., Ll) - temporary until optimal available
+        3. Mix of acceptable and optimal
+        4. Fall back to undesirable if absolutely necessary
+        """
         if not eligible_males or not eligible_females:
             return []
         
         if traits is None:
             traits = []
         
-        # Kennel club breeder always filters out undesirable genotypes
-        # Also respects global avoidance flags for phenotypes
+        # Start with all eligible creatures
         filtered_males = eligible_males.copy()
         filtered_females = eligible_females.copy()
         
-        # Always filter undesirable genotypes (kennel club requirement)
-        # Note: We bypass the avoid_undesirable_genotypes flag check for kennel club
-        if self.undesirable_genotypes:
-            for undesirable in self.undesirable_genotypes:
-                trait_id = undesirable['trait_id']
-                undesirable_genotype = undesirable['genotype']
-                filtered_males = [m for m in filtered_males 
-                                if trait_id >= len(m.genome) or m.genome[trait_id] is None or m.genome[trait_id] != undesirable_genotype]
-                filtered_females = [f for f in filtered_females 
-                                  if trait_id >= len(f.genome) or f.genome[trait_id] is None or f.genome[trait_id] != undesirable_genotype]
+        # Use new preference system if configured, otherwise legacy
+        if self.genotype_preferences:
+            # Tiered filtering: try optimal > acceptable > undesirable as fallback
+            # Tier 0: Creatures with optimal genotypes (e.g., LL)
+            optimal_males = [m for m in filtered_males if all(
+                self._get_genotype_tier(m, p['trait_id']) == 0 
+                for p in self.genotype_preferences
+            )]
+            optimal_females = [f for f in filtered_females if all(
+                self._get_genotype_tier(f, p['trait_id']) == 0 
+                for p in self.genotype_preferences
+            )]
+            
+            # Tier 1: Creatures with acceptable or better (e.g., LL or Ll, but not ll)
+            acceptable_or_better_males = [m for m in filtered_males if self._has_acceptable_or_better_genotypes(m)]
+            acceptable_or_better_females = [f for f in filtered_females if self._has_acceptable_or_better_genotypes(f)]
+            
+            # Try optimal first, fall back to acceptable, then fall back to all
+            if optimal_males and optimal_females:
+                filtered_males = optimal_males
+                filtered_females = optimal_females
+            elif acceptable_or_better_males and acceptable_or_better_females:
+                filtered_males = acceptable_or_better_males
+                filtered_females = acceptable_or_better_females
+            # else: use all filtered (fallback to undesirable if necessary)
+            
+        else:
+            # Legacy: filter out undesirable genotypes
+            if self.undesirable_genotypes:
+                for undesirable in self.undesirable_genotypes:
+                    trait_id = undesirable['trait_id']
+                    undesirable_genotype = undesirable['genotype']
+                    filtered_males = [m for m in filtered_males 
+                                    if trait_id >= len(m.genome) or m.genome[trait_id] is None or m.genome[trait_id] != undesirable_genotype]
+                    filtered_females = [f for f in filtered_females 
+                                      if trait_id >= len(f.genome) or f.genome[trait_id] is None or f.genome[trait_id] != undesirable_genotype]
+            
+            # If filtering removed all candidates, fall back to original lists
+            if not filtered_males:
+                filtered_males = eligible_males
+            if not filtered_females:
+                filtered_females = eligible_females
         
         # Filter undesirable phenotypes if global flag is enabled
         if self.avoid_undesirable_phenotypes:
             filtered_males = [m for m in filtered_males if not self._has_undesirable_phenotype(m, traits)]
             filtered_females = [f for f in filtered_females if not self._has_undesirable_phenotype(f, traits)]
-        
-        # If filtering removed all candidates, fall back to original lists
-        if not filtered_males:
-            filtered_males = eligible_males
-        if not filtered_females:
-            filtered_females = eligible_females
         
         # Filter creatures that match target phenotypes
         matching_males = [m for m in filtered_males if self._matches_target_phenotypes(m, traits)]
@@ -384,6 +500,134 @@ class KennelClubBreeder(Breeder):
             pairs.append((male, female))
         
         return pairs
+    
+    def select_replacement(
+        self,
+        candidates: List['Creature'],
+        sex: str,
+        traits: List,
+        rng: np.random.Generator
+    ) -> Optional['Creature']:
+        """
+        Select best replacement for kennel club breeder.
+        Priority: No undesirable genotypes > Best genotype for target phenotype.
+        
+        For dominant traits: prefer homozygous dominant (AA)
+        For recessive traits: prefer homozygous recessive (aa)
+        
+        Args:
+            candidates: List of potential replacement creatures
+            sex: Required sex ('male' or 'female')
+            traits: List of trait definitions
+            rng: Random number generator
+            
+        Returns:
+            Best replacement creature, or None if no suitable candidates
+        """
+        from .trait import Trait
+        
+        # Filter by sex
+        sex_filtered = [c for c in candidates if c.sex == sex]
+        if not sex_filtered:
+            return None
+        
+        # Use new preference system if available
+        if self.genotype_preferences:
+            # Tier-based scoring with strong preference for optimal genotypes
+            def score_candidate_tiered(creature: 'Creature') -> int:
+                """Score based on genotype preference tiers."""
+                score = 0
+                
+                for pref in self.genotype_preferences:
+                    trait_id = pref['trait_id']
+                    tier = self._get_genotype_tier(creature, trait_id)
+                    
+                    # Heavily weight optimal genotypes
+                    if tier == 0:  # Optimal (e.g., LL)
+                        score += 100
+                    elif tier == 1:  # Acceptable (e.g., Ll)
+                        score += 10
+                    elif tier == 2:  # Undesirable (e.g., ll)
+                        score += 0
+                    # tier == 3: not configured, neutral
+                
+                # Also check target phenotypes
+                for target in self.target_phenotypes:
+                    trait_id = target['trait_id']
+                    target_phenotype = target['phenotype']
+                    
+                    if trait_id >= len(creature.genome) or creature.genome[trait_id] is None:
+                        continue
+                    
+                    trait = next((t for t in traits if t.trait_id == trait_id), None)
+                    if trait is None:
+                        continue
+                    
+                    genotype = creature.genome[trait_id]
+                    phenotype = trait.get_phenotype(genotype, creature.sex)
+                    
+                    if phenotype == target_phenotype:
+                        score += 5  # Bonus for target phenotype match
+                
+                return score
+            
+            # Score all candidates
+            scored = [(c, score_candidate_tiered(c)) for c in sex_filtered]
+            max_score = max(score for _, score in scored)
+            best_candidates = [c for c, score in scored if score == max_score]
+            
+            return rng.choice(best_candidates) if best_candidates else None
+        
+        # Legacy behavior: filter out undesirable genotypes
+        filtered = sex_filtered.copy()
+        if self.undesirable_genotypes:
+            for undesirable in self.undesirable_genotypes:
+                trait_id = undesirable['trait_id']
+                undesirable_genotype = undesirable['genotype']
+                filtered = [c for c in filtered 
+                           if trait_id >= len(c.genome) or c.genome[trait_id] is None or c.genome[trait_id] != undesirable_genotype]
+        
+        if not filtered:
+            return None
+        
+        # Score each candidate based on genotypes for target phenotypes
+        def score_candidate(creature: 'Creature') -> int:
+            """Score based on optimal genotypes for target phenotypes."""
+            score = 0
+            for target in self.target_phenotypes:
+                trait_id = target['trait_id']
+                target_phenotype = target['phenotype']
+                
+                if trait_id >= len(creature.genome) or creature.genome[trait_id] is None:
+                    continue
+                
+                # Find trait definition
+                trait = next((t for t in traits if t.trait_id == trait_id), None)
+                if trait is None:
+                    continue
+                
+                genotype = creature.genome[trait_id]
+                phenotype = trait.get_phenotype(genotype, creature.sex)
+                
+                # Check if phenotype matches target
+                if phenotype == target_phenotype:
+                    # Bonus for matching phenotype
+                    score += 10
+                    
+                    # Additional bonus for homozygous genotypes
+                    # This helps stabilize the trait
+                    if len(genotype) == 2 and genotype[0] == genotype[1]:
+                        score += 5  # Homozygous bonus (AA or aa)
+                    
+            return score
+        
+        # Find candidates with highest scores
+        scored = [(c, score_candidate(c)) for c in filtered]
+        max_score = max(score for _, score in scored)
+        best_candidates = [c for c, score in scored if score == max_score]
+        
+        # Return random choice from best candidates
+        return rng.choice(best_candidates) if best_candidates else None
 
 
 class MillBreeder(Breeder):
@@ -495,4 +739,56 @@ class MillBreeder(Breeder):
             pairs.append((male, female))
         
         return pairs
+    
+    def select_replacement(
+        self,
+        candidates: List['Creature'],
+        sex: str,
+        traits: List,
+        rng: np.random.Generator
+    ) -> Optional['Creature']:
+        """
+        Select best replacement for mill breeder.
+        Priority: Target phenotype > avoid undesirable phenotypes.
+        
+        Args:
+            candidates: List of potential replacement creatures
+            sex: Required sex ('male' or 'female')
+            traits: List of trait definitions
+            rng: Random number generator
+            
+        Returns:
+            Best replacement creature, or None if no suitable candidates
+        """
+        from .trait import Trait
+        
+        # Filter by sex
+        sex_filtered = [c for c in candidates if c.sex == sex]
+        if not sex_filtered:
+            return None
+        
+        # Always filter out undesirable phenotypes (mill requirement)
+        filtered = sex_filtered.copy()
+        if self.undesirable_phenotypes:
+            for undesirable in self.undesirable_phenotypes:
+                trait_id = undesirable['trait_id']
+                undesirable_phenotype = undesirable['phenotype']
+                trait = next((t for t in traits if t.trait_id == trait_id), None)
+                if trait is not None:
+                    filtered = [c for c in filtered 
+                               if trait_id >= len(c.genome) or c.genome[trait_id] is None or 
+                               trait.get_phenotype(c.genome[trait_id], c.sex) != undesirable_phenotype]
+        
+        if not filtered:
+            return None
+        
+        # Priority: creatures with target phenotypes
+        matching = [c for c in filtered if self._matches_target_phenotypes(c, traits)]
+        
+        # If we have matching candidates, choose from them
+        if matching:
+            return rng.choice(matching)
+        
+        # Otherwise, choose from filtered (non-undesirable)
+        return rng.choice(filtered) if filtered else None
 

@@ -86,7 +86,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             CREATE TABLE IF NOT EXISTS creatures (
                 creature_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 simulation_id INTEGER NOT NULL,
-                birth_cycle INTEGER NOT NULL CHECK(birth_cycle >= 0),
+                birth_cycle INTEGER NOT NULL,
                 sex TEXT CHECK(sex IN ('male', 'female')) NULL,
                 parent1_id INTEGER NULL,
                 parent2_id INTEGER NULL,
@@ -95,6 +95,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
                 inbreeding_coefficient REAL NOT NULL CHECK(inbreeding_coefficient >= 0.0 AND inbreeding_coefficient <= 1.0) DEFAULT 0.0,
                 lifespan INTEGER NOT NULL CHECK(lifespan > 0),
                 is_alive BOOLEAN DEFAULT 1,
+                is_homed BOOLEAN DEFAULT 0,
                 conception_cycle INTEGER NULL,
                 sexual_maturity_cycle INTEGER NULL,
                 max_fertility_age_cycle INTEGER NULL,
@@ -106,8 +107,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
                 FOREIGN KEY (parent2_id) REFERENCES creatures(creature_id) ON DELETE SET NULL,
                 FOREIGN KEY (breeder_id) REFERENCES breeders(breeder_id) ON DELETE SET NULL,
                 FOREIGN KEY (produced_by_breeder_id) REFERENCES breeders(breeder_id) ON DELETE SET NULL,
-                CHECK((birth_cycle = 0) = (parent1_id IS NULL)),
-                CHECK((birth_cycle = 0) = (parent2_id IS NULL))
+                CHECK((generation = 0) = (parent1_id IS NULL)),
+                CHECK((generation = 0) = (parent2_id IS NULL))
             )
         """)
         

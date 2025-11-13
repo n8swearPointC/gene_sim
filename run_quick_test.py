@@ -8,9 +8,9 @@ print("Running Quick Simulation Test")
 print("=" * 60)
 print("\nConfiguration:")
 print("  - Initial population: 100 creatures")
-print("  - Generations: 20")
+print("  - Years: 2 (~30 cycles)")
 print("  - Traits: 5 (all Simple Mendelian)")
-print("  - Breeders: 20 random breeders")
+print("  - Breeders: 15 (5 kennel club, 10 mill)")
 print()
 
 # Run simulation
@@ -35,54 +35,88 @@ print()
 # Query some statistics
 conn = sqlite3.connect(results.database_path)
 
-# Population size over time
-print("Population Size Over Generations:")
-print("-" * 60)
+# Combined statistics table - Population + All Genotypes
+print("Generation Statistics (All Traits - Genotype Frequencies %):")
+print("=" * 200)
 cursor = conn.cursor()
+
+# Get all generations with population stats
 cursor.execute("""
     SELECT generation, population_size, births, deaths, eligible_males, eligible_females
     FROM generation_stats
     WHERE simulation_id = ?
     ORDER BY generation
 """, (results.simulation_id,))
-print(f"{'Gen':<6} {'Pop Size':<10} {'Births':<8} {'Deaths':<8} {'Males':<8} {'Females':<8}")
-print("-" * 60)
-for row in cursor.fetchall():
-    gen, pop, births, deaths, males, females = row
-    print(f"{gen:<6} {pop:<10} {births:<8} {deaths:<8} {males:<8} {females:<8}")
-print()
+gen_stats = {row[0]: row[1:] for row in cursor.fetchall()}
 
-# Genotype frequencies for trait 0 (Coat Color) - show first and last generations
-print("Trait 0 (Coat Color) - Genotype Frequencies:")
-print("-" * 60)
+# Get all genotype frequencies for all traits
 cursor.execute("""
-    SELECT generation, genotype, frequency
+    SELECT generation, trait_id, genotype, frequency
     FROM generation_genotype_frequencies
-    WHERE simulation_id = ? AND trait_id = 0
-    ORDER BY generation, genotype
+    WHERE simulation_id = ?
+    ORDER BY generation, trait_id, genotype
 """, (results.simulation_id,))
-print(f"{'Gen':<6} {'Genotype':<12} {'Frequency':<12}")
-print("-" * 60)
-for row in cursor.fetchall():
-    gen, genotype, freq = row
-    print(f"{gen:<6} {genotype:<12} {freq:<12.4f}")
-print()
 
-# Final generation statistics for all traits
-print("Final Generation (Gen {}) - Genotype Frequencies:".format(results.generations_completed - 1))
-print("-" * 60)
-final_gen = results.generations_completed - 1
-cursor.execute("""
-    SELECT trait_id, genotype, frequency
-    FROM generation_genotype_frequencies
-    WHERE simulation_id = ? AND generation = ?
-    ORDER BY trait_id, frequency DESC
-""", (results.simulation_id, final_gen))
-print(f"{'Trait':<8} {'Genotype':<12} {'Frequency':<12}")
-print("-" * 60)
-for row in cursor.fetchall():
-    trait_id, genotype, freq = row
-    print(f"{trait_id:<8} {genotype:<12} {freq:<12.4f}")
+# Organize genotypes by generation and trait
+genotypes_by_gen = {}
+for gen, trait_id, genotype, freq in cursor.fetchall():
+    if gen not in genotypes_by_gen:
+        genotypes_by_gen[gen] = {}
+    if trait_id not in genotypes_by_gen[gen]:
+        genotypes_by_gen[gen][trait_id] = {}
+    genotypes_by_gen[gen][trait_id][genotype] = freq
+
+# Print combined table header
+print(f"{'Gen':<4} {'Pop':<5} {'Brth':<5} {'Dth':<4} {'M':<4} {'F':<4} "
+      f"{'BB':<6} {'Bb':<6} {'bb':<6} "
+      f"{'LL':<6} {'Ll':<6} {'ll':<6} "
+      f"{'EE':<6} {'Ee':<6} {'ee':<6} "
+      f"{'TT':<6} {'Tt':<6} {'tt':<6} "
+      f"{'PP':<6} {'Pp':<6} {'pp':<6}")
+print("-" * 200)
+
+for gen in sorted(gen_stats.keys()):
+    pop, births, deaths, males, females = gen_stats[gen]
+    genos = genotypes_by_gen.get(gen, {})
+    
+    # Trait 0 (Coat Color)
+    t0 = genos.get(0, {})
+    BB = t0.get('BB', 0.0) * 100
+    Bb = t0.get('Bb', 0.0) * 100
+    bb = t0.get('bb', 0.0) * 100
+    
+    # Trait 1 (Body Size)
+    t1 = genos.get(1, {})
+    LL = t1.get('LL', 0.0) * 100
+    Ll = t1.get('Ll', 0.0) * 100
+    ll = t1.get('ll', 0.0) * 100
+    
+    # Trait 2 (Eye Color)
+    t2 = genos.get(2, {})
+    EE = t2.get('EE', 0.0) * 100
+    Ee = t2.get('Ee', 0.0) * 100
+    ee = t2.get('ee', 0.0) * 100
+    
+    # Trait 3 (Tail Type)
+    t3 = genos.get(3, {})
+    TT = t3.get('TT', 0.0) * 100
+    Tt = t3.get('Tt', 0.0) * 100
+    tt = t3.get('tt', 0.0) * 100
+    
+    # Trait 4 (Ear Shape)
+    t4 = genos.get(4, {})
+    PP = t4.get('PP', 0.0) * 100
+    Pp = t4.get('Pp', 0.0) * 100
+    pp = t4.get('pp', 0.0) * 100
+    
+    print(f"{gen:<4} {pop:<5} {births:<5} {deaths:<4} {males:<4} {females:<4} "
+          f"{BB:>5.1f}% {Bb:>5.1f}% {bb:>5.1f}% "
+          f"{LL:>5.1f}% {Ll:>5.1f}% {ll:>5.1f}% "
+          f"{EE:>5.1f}% {Ee:>5.1f}% {ee:>5.1f}% "
+          f"{TT:>5.1f}% {Tt:>5.1f}% {tt:>5.1f}% "
+          f"{PP:>5.1f}% {Pp:>5.1f}% {pp:>5.1f}%")
+
+print("=" * 200)
 print()
 
 conn.close()

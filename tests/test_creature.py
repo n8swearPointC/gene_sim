@@ -46,12 +46,12 @@ def test_creature_creation(founder_creature):
 
 
 def test_creature_founder_validation():
-    """Test that founders must have no parents."""
+    """Test that founders cannot have conception_cycle and must have generation=0."""
     genome = [None] * 1
     genome[0] = "BB"
     
-    # Valid founder
-    Creature(
+    # Valid founder with birth_cycle=0
+    founder1 = Creature(
         simulation_id=1,
         birth_cycle=0,
         sex="male",
@@ -59,17 +59,41 @@ def test_creature_founder_validation():
         parent1_id=None,
         parent2_id=None
     )
+    assert founder1.generation == 0
     
-    # Invalid: founder with parent
-    with pytest.raises(ValueError):
+    # Valid founder with negative birth_cycle (random age)
+    founder2 = Creature(
+        simulation_id=1,
+        birth_cycle=-5,
+        sex="male",
+        genome=genome,
+        parent1_id=None,
+        parent2_id=None
+    )
+    assert founder2.generation == 0
+    
+    # Invalid: founder with conception_cycle
+    with pytest.raises(ValueError, match="Founders cannot have a conception_cycle"):
         Creature(
             simulation_id=1,
             birth_cycle=0,
             sex="male",
             genome=genome,
-            parent1_id=1,
-            parent2_id=None
+            parent1_id=None,
+            parent2_id=None,
+            conception_cycle=-1
         )
+    
+    # Valid: offspring born at cycle 0 (parents bred in first cycle)
+    offspring = Creature(
+        simulation_id=1,
+        birth_cycle=0,
+        sex="male",
+        genome=genome,
+        parent1_id=1,
+        parent2_id=2
+    )
+    # Offspring don't auto-set generation in __init__, but they should allow parents
 
 
 def test_creature_calculate_age(founder_creature):
