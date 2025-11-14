@@ -282,9 +282,35 @@ class Simulation:
             current_age_cycles = self.rng.integers(1, lifespan + 1)
             birth_cycle = -current_age_cycles  # Negative birth_cycle means born before simulation start
             
-            # Assign founder to a breeder (distribute evenly)
-            breeder_index = i % len(self.breeders) if self.breeders else 0
-            breeder_id = self.breeders[breeder_index].breeder_id if self.breeders else None
+            # Assign founder to a breeder (distribute evenly, respecting capacity)
+            # Find a breeder with capacity
+            breeder_id = None
+            if self.breeders:
+                # Count how many founders each breeder has been assigned so far
+                breeder_counts = {}
+                for b in self.breeders:
+                    breeder_counts[b.breeder_id] = 0
+                
+                # Count already assigned founders
+                for existing_founder in founders:
+                    if existing_founder.breeder_id in breeder_counts:
+                        breeder_counts[existing_founder.breeder_id] += 1
+                
+                # Find a breeder with capacity (under max_creatures)
+                for breeder in self.breeders:
+                    if breeder_counts[breeder.breeder_id] < breeder.max_creatures:
+                        breeder_id = breeder.breeder_id
+                        break
+                
+                # If all breeders are at capacity, mark founder as homed (overflow)
+                if breeder_id is None and self.breeders:
+                    # Assign to first breeder but mark as homed
+                    breeder_id = self.breeders[0].breeder_id
+                    is_homed = True
+                else:
+                    is_homed = False
+            else:
+                is_homed = False
             
             creature = Creature(
                 simulation_id=0,  # Will be updated after simulation record created
@@ -298,6 +324,10 @@ class Simulation:
                 lifespan=lifespan,
                 is_alive=True
             )
+            
+            # Mark as homed if all breeders were at capacity
+            if is_homed:
+                creature.is_homed = True
             
             founders.append(creature)
         

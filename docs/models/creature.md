@@ -18,15 +18,22 @@ A **Creature** represents an individual organism in the simulation with a diploi
 |-----------|------|-------------|
 | `creature_id` | Integer | Unique identifier for the creature (auto-increment primary key) |
 | `simulation_id` | Integer | Foreign key to simulation this creature belongs to |
-| `birth_generation` | Integer | Generation when creature was born (fixed, never changes) |
+| `birth_cycle` | Integer | **Cycle** when creature was born (fixed, never changes) |
+| `generation` | Integer | **Generation** number for demographic tracking (derived from birth_cycle) |
 | `sex` | Enum | Biological sex: 'male', 'female', or NULL (if sex not modeled) |
 | `parent1_id` | Integer | Foreign key to first parent (NULL for founders) |
 | `parent2_id` | Integer | Foreign key to second parent (NULL for founders) |
+| `breeder_id` | Integer | Foreign key to current owner/breeder |
+| `produced_by_breeder_id` | Integer | Foreign key to breeder who produced this creature (NULL for founders) |
 | `inbreeding_coefficient` | Real | Inbreeding coefficient (F) for this creature, calculated from pedigree (0.0 to 1.0) |
-| `litters_remaining` | Integer | Number of litters remaining for this creature (starts at max value from simulation config, decrements per litter) |
-| `lifespan` | Integer | Individual lifespan for this creature (sampled from lifespan range in simulation config at birth) |
-| `is_alive` | Boolean | Whether creature is alive in current generation (for mortality modeling) |
+| `lifespan` | Integer | Individual lifespan in cycles (sampled from lifespan range in simulation config at birth) |
+| `is_alive` | Boolean | Whether creature is alive in current cycle (for mortality modeling) |
 | `is_homed` | Boolean | Whether creature has been placed in a pet home (spayed/neutered, removed from breeding pool but still alive) |
+| `conception_cycle` | Integer | Cycle when creature was conceived (NULL for founders) |
+| `sexual_maturity_cycle` | Integer | Cycle when creature reaches sexual maturity |
+| `max_fertility_age_cycle` | Integer | Cycle when creature's fertility ends |
+| `gestation_end_cycle` | Integer | Cycle when gestation period ends (NULL if never pregnant) |
+| `nursing_end_cycle` | Integer | Cycle when nursing period ends (NULL if never nursing) |
 
 **Design Notes:**
 - **CRITICAL: All creatures are persisted to the database immediately upon creation** (see section 8.3)

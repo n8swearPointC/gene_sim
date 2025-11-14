@@ -43,6 +43,7 @@ Enable researchers, educators, and enthusiasts to:
    - Model population growth, stability, and decline
    - Track genetic diversity metrics over time
    - Configurable litter size (number of offspring per breeding pair)
+   - Breeder capacity management (offspring transferred or homed when exceeding max_creatures limit)
 
 ### 2.2 Analysis & Reporting Objectives
 1. **Post-Simulation Analysis**
@@ -174,6 +175,26 @@ Enable researchers, educators, and enthusiasts to:
 - **Concurrent Simulations:** Run 10+ parallel simulations
 - **Data Storage:** Efficiently store 100+ simulation histories
 
+### 5.4 Memory Management
+**Requirement:** Homed creatures must be removed from working memory to maintain performance.
+
+**Rationale:** 
+- Homed creatures (marked with `is_homed=True`) are already persisted to database
+- They are removed from breeding pool and will not breed again
+- Keeping them in memory (`population.creatures` list) degrades performance as population grows
+- With exponential offspring growth, tens of thousands of homed creatures can accumulate
+
+**Implementation:**
+- Homed offspring are persisted to database but NOT added to `population.creatures`
+- Adult creatures homed via `_spay_neuter_and_home()` are removed from memory after database update
+- Removed creatures must also be removed from `age_out` lists to prevent stale references
+- All removed creatures remain in database for genealogical queries and reporting
+
+**Performance Impact:**
+- Without this optimization: 100 creatures over 3 years with 5 breeders → 21,000+ creatures in memory
+- With this optimization: Same simulation maintains ~300-500 creatures in memory (breeding pool only)
+- Enables simulations to scale linearly with breeding pool size instead of exponentially with total births
+
 ---
 
 ## 6. Constraints
@@ -261,6 +282,7 @@ As a developer, I want to:
    - Selective breeding (trait-based)
    - Fitness-based selection (Phase 2)
    - Inbreeding avoidance
+   - Breeder capacity limits (max creatures per breeder)
 
 3. **Tracking & History**
    - Generation-by-generation snapshots stored in SQLite

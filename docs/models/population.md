@@ -31,18 +31,19 @@ The population maintains the in-memory working pool of creatures. Removal behavi
 
 - **Inclusion:** Creatures are added to the working pool when:
   - Initial population is created (founders) - **all founders are persisted immediately** and have IDs before being added
-  - Offspring are born from reproduction - **all offspring are persisted immediately** when created, but only remaining offspring (not removed) are added to the pool
+  - Offspring are born from reproduction - **only non-homed offspring are added** to working pool (homed offspring are in DB only)
   
 - **Persistence:** **ALL creatures are persisted to the database immediately upon creation:**
   - Founders: Persisted immediately after simulation initialization
-  - Offspring: Persisted immediately when created (both removed and remaining)
+  - Offspring: Persisted immediately when created (both homed and kept)
   - This ensures all creatures have IDs from the start and complete historical records
   
-- **Offspring Removal:** Some offspring may be removed before entering the population (sold/given away):
-  - Controlled by `offspring_removal_rate` configuration (0.0-1.0 probability)
-  - **Removed offspring are still persisted to database immediately** for historical tracking
-  - Removed offspring do not enter the breeding pool and do not contribute to population growth
-  - This mechanism helps control population growth
+- **Homed Creatures:** Creatures marked as `is_homed=True` are removed from working memory:
+  - Homed offspring: Created during breeding, persisted to database, marked as homed, but NOT added to `population.creatures`
+  - Spayed/neutered adults: Existing creatures homed via `_spay_neuter_and_home()`, removed from working pool after database update
+  - Rationale: Homed creatures will not breed again, keeping them in memory degrades performance
+  - Performance: Prevents exponential memory growth (21,000+ creatures → 300-500 creatures for same simulation)
+  - Data integrity: All homed creatures remain in database for queries and reporting
   
 - **Removal from Working Pool:** Behavior depends on `remove_ineligible_immediately` configuration:
   - **If `true`:** Creatures are removed from working pool immediately after they can no longer reproduce (breeding age limit exceeded or litters_remaining <= 0)
@@ -105,6 +106,19 @@ class Population:
         """
         Gets aged-out creatures for current generation, persists them to database 
         (see [Creature Model](creature.md) section 8.3), then removes from working pool and aging-out list.
+        """
+        pass
+    
+    def remove_homed_creatures(self, homed_creatures: List[Creature]) -> None:
+        """
+        Removes homed creatures from working pool and aging-out lists.
+        
+        Homed creatures are already persisted to database and marked with is_homed=True.
+        This method removes them from in-memory population to improve performance by
+        preventing exponential memory growth as offspring accumulate.
+        
+        Args:
+            homed_creatures: List of creatures that have been homed
         """
         pass
     

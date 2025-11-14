@@ -143,6 +143,7 @@ def test_creature_create_offspring(sample_traits):
         target_phenotypes=[],
         undesirable_phenotypes=[],
         undesirable_genotypes=[],
+        genotype_preferences=[],
         breeders=None,
         traits=[],
         raw_config={}
@@ -242,6 +243,7 @@ def test_litter_size_produces_multiple_offspring(sample_traits):
         target_phenotypes=[],
         undesirable_phenotypes=[],
         undesirable_genotypes=[],
+        genotype_preferences=[],
         breeders=None,
         traits=sample_traits,
         raw_config={}

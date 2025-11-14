@@ -82,6 +82,14 @@ undesirable_genotypes:
 # - Kennel clubs: transfer males regularly, females ~3x in lifetime; won't accept mill-origin creatures
 # - Mills: low transfer probability; may replace breeding females with offspring
 # - Transfer restrictions ensure realistic breeding program dynamics
+# 
+# Capacity Limits:
+# - Each breeder has a maximum number of creatures they can own (default: 7)
+# - When offspring are born and breeder is at capacity, they are:
+#   1. Kept as replacements if needed (parent died/aged out)
+#   2. Transferred to another breeder with available capacity
+#   3. Homed (marked is_homed=True) only if all breeders are at capacity
+# - Capacity check occurs during offspring assignment, not via culling
 breeders:
   # Number of breeders of each type (actual counts, not percentages)
   # Each breeder is assigned an ID and persists to the database
@@ -89,6 +97,9 @@ breeders:
   inbreeding_avoidance: 30
   kennel_club: 15
   mill: 5
+  
+  # Maximum creatures per breeder (capacity limit)
+  max_creatures: 7  # Default: 7; oldest creatures culled when exceeded
   
   # Kennel club breeder configuration (if using kennel_club breeder)
   kennel_club_config:

@@ -117,6 +117,28 @@ class Population:
         if len(self.age_out) > 0:
             self.age_out = self.age_out[1:]
     
+    def remove_homed_creatures(self, homed_creatures: List[Creature]) -> None:
+        """
+        Remove homed creatures from working pool and aging-out list.
+        
+        Homed creatures are already persisted to database and marked with is_homed=True.
+        This method removes them from in-memory population to improve performance.
+        
+        Args:
+            homed_creatures: List of creatures that have been homed
+        """
+        if homed_creatures:
+            creature_ids_to_remove = {c.creature_id for c in homed_creatures if c.creature_id is not None}
+            
+            # Remove from main creatures list
+            self.creatures = [c for c in self.creatures if c.creature_id not in creature_ids_to_remove]
+            
+            # Also remove from age_out lists
+            for age_list in self.age_out:
+                if age_list:
+                    # Filter out homed creatures from each age bucket
+                    age_list[:] = [c for c in age_list if c.creature_id not in creature_ids_to_remove]
+    
     def advance_cycle(self) -> None:
         """
         Advance aging-out list by slicing off the first element.

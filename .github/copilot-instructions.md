@@ -236,6 +236,235 @@ rng = np.random.default_rng(seed=simulation.seed)
 - Commit after each generation for data safety
 - Use batch inserts for performance (creatures, genotypes)
 
+## Setting Up Experimental Runs
+
+The project uses a structured approach for organizing experimental runs with batch analysis capabilities. Each run is a complete experimental setup with consistent directory structure and scripts.
+
+### Run Directory Structure
+
+Each run (e.g., `run3/`, `run4/`, `run5/`) follows this standard structure:
+
+```
+runX/
+├── README.md                  # Run documentation and research questions
+├── runX_config.yaml           # Base configuration file
+├── runX_execute.py            # Batch execution script
+├── run_single_pass.py         # Quick test script (single simulation)
+├── runXa_kennels/             # Output directory for kennel-dominated batch
+│   ├── batch_config.yaml      # Modified config for this batch
+│   ├── batch_results.json     # Aggregated results
+│   └── *.db                   # Individual simulation databases
+└── runXb_mills/               # Output directory for mill-dominated batch
+    ├── batch_config.yaml      # Modified config for this batch
+    ├── batch_results.json     # Aggregated results
+    └── *.db                   # Individual simulation databases
+```
+
+### Creating a New Run
+
+When setting up a new experimental run (e.g., run5, run6, etc.), follow these steps:
+
+#### 1. Create Directory Structure
+```python
+# Create main run directory and subdirectories
+run_dir/
+  runXa_kennels/    # First experimental condition
+  runXb_mills/      # Second experimental condition
+```
+
+#### 2. Create Configuration File (`runX_config.yaml`)
+
+**Key elements to define:**
+- `seed`: Base seed for reproducibility (use unique range per run)
+- `years`: Simulation duration
+- `mode`: Set to `monitor` for detailed tracking
+- `initial_population_size`: Starting population
+- `creature_archetype`: Lifespan, maturity, breeding parameters
+- `target_phenotypes`: List of desirable traits to breed toward
+- `undesirable_phenotypes`: List of traits to avoid
+- `genotype_preferences`: Kennel club breeding preferences
+- `breeders`: Initial breeder configuration (will be modified per batch)
+- `traits`: Complete trait definitions with genotypes and frequencies
+
+**Seed Range Convention:**
+- Each run uses a unique 1000-seed range
+- Run 2: 1000-2999
+- Run 3: 3000-4999
+- Run 4: 5000-6999
+- Run 5: 7000-8999
+- Batch A (kennels): base_seed + 0-14 (e.g., 7000-7014)
+- Batch B (mills): base_seed + 1000-1014 (e.g., 8000-8014)
+
+#### 3. Create Execution Script (`runX_execute.py`)
+
+The execution script orchestrates batch runs with different breeder configurations:
+
+```python
+#!/usr/bin/env python
+"""
+Run X Execution Script - [Brief description of experiment]
+
+Executes two batches:
+- Batch A: [Configuration A, e.g., 19 kennels, 1 mill]
+- Batch B: [Configuration B, e.g., 1 kennel, 19 mills]
+"""
+
+def run_batch(config_path, output_dir, num_runs, kennels, mills, base_seed):
+    """Execute a batch with specified breeder configuration."""
+    # Load base config
+    # Modify breeder counts
+    # Save modified config to output_dir/batch_config.yaml
+    # Call batch_run.py with parameters
+    
+def main():
+    """Execute both batches for Run X."""
+    # Run Batch A (e.g., kennel-dominated)
+    # Run Batch B (e.g., mill-dominated)
+    # Display summary and next steps
+```
+
+**Key execution script features:**
+- Modifies base config per batch (breeder counts)
+- Calls `batch_run.py` with appropriate parameters
+- Creates batch-specific config files
+- Provides clear progress output and next steps
+
+#### 4. Create Single-Pass Test Script (`run_single_pass.py`)
+
+Quick test script for validation before full batch execution:
+
+```python
+#!/usr/bin/env python3
+"""Single-pass execution with monitoring enabled."""
+
+def run_single_simulation(config_path, run_name, seed):
+    """Run one simulation for testing."""
+    # Load config
+    # Override seed and mode
+    # Create output in single_pass_results/
+    # Run simulation
+    # Return database path
+
+def main():
+    """Run single configuration with monitoring."""
+    # Use first seed from range
+    # Create temp config
+    # Execute simulation
+    # Display results location
+```
+
+**Benefits:**
+- Fast validation (one simulation vs. 30)
+- Tests configuration correctness
+- Verifies database creation
+- Enables quick debugging
+
+#### 5. Create Documentation (`README.md`)
+
+Document the run's purpose and parameters:
+
+**Required sections:**
+- **Overview**: Brief description of experiment
+- **Configuration**: Population size, duration, breeders
+- **Experimental Design**: Batch details (seeds, conditions)
+- **Traits**: Summary of trait configuration
+- **Execution**: Commands to run single test and full batches
+- **Comparison**: Table comparing to previous runs
+- **Research Questions**: What this run aims to discover
+- **Analysis**: Commands for post-run analysis
+- **Expected Outcomes**: Hypotheses based on previous results
+
+#### 6. Seed Selection Guidelines
+
+**Choose unique seed ranges that:**
+- Don't overlap with existing runs
+- Use round numbers (multiples of 1000) for easy tracking
+- Reserve 1000 seeds per run (even if only using 30)
+- Follow the pattern: runX uses X000-X999 range
+
+**Example:**
+```yaml
+# Run 5 configuration
+seed: 7000  # Base seed for config file
+
+# Batch A (kennels): seeds 7000-7014
+# Batch B (mills): seeds 8000-8014
+```
+
+### Common Run Patterns
+
+#### Standard Kennel vs Mill Comparison
+Most runs compare selective (kennel) vs. volume (mill) breeding:
+- **Batch A**: 19 kennels, 1 mill (95% selective breeding)
+- **Batch B**: 1 kennel, 19 mills (95% volume breeding)
+- **Runs**: 15 simulations per batch
+- **Total**: 30 simulations per run
+
+#### Run Evolution Pattern
+- **Run 2**: Baseline (50 creatures, 15 years, 10 breeders)
+- **Run 3**: Scale up population (200 creatures, 6 years, 20 breeders)
+- **Run 4**: Extend timeframe (200 creatures, 20 years, 20 breeders)
+- **Run 5**: Replicate run 3 (validation with different seeds)
+
+### Execution Workflow
+
+**Quick Test (Development):**
+```bash
+cd runX
+python run_single_pass.py  # Test with one simulation
+```
+
+**Full Batch Execution:**
+```bash
+cd runX
+python runX_execute.py     # Run all 30 simulations
+```
+
+**Analysis:**
+```bash
+# Individual batch analysis
+python batch_analysis.py runX/runXa_kennels
+python batch_analysis.py runX/runXb_mills
+
+# Combined comparison
+python batch_analysis_combined.py runX/runXa_kennels runX/runXb_mills
+
+# Desired traits only
+python batch_analysis_combined_desired.py runX/runXa_kennels runX/runXb_mills
+```
+
+### Best Practices
+
+1. **Always test first**: Run `run_single_pass.py` before full batch
+2. **Document research questions**: Clear hypotheses in README.md
+3. **Use consistent naming**: Follow runX_* pattern for all files
+4. **Unique seeds**: Never reuse seed ranges across runs
+5. **Copy existing runs**: Use previous run as template (copy and modify)
+6. **Version control**: Commit run setup before execution
+7. **Compare parameters**: Include comparison table in README.md
+8. **Plan analysis**: Define analysis approach before running
+
+### Troubleshooting Run Setup
+
+**Config validation errors:**
+- Check trait frequencies sum to 1.0
+- Verify trait_id values are 0-99
+- Ensure genotype strings match trait definitions
+
+**Import errors in scripts:**
+- Verify parent directory added to sys.path
+- Check from gene_sim.simulation import Simulation
+
+**Execution failures:**
+- Test with run_single_pass.py first
+- Check batch_run.py exists in parent directory
+- Verify YAML config is valid (use yaml.safe_load test)
+
+**Database issues:**
+- Ensure output directories exist (scripts create them)
+- Check disk space for database files
+- Verify SQLite installation
+
 ## References
 - Full requirements: `docs/requirements.md`
 - Domain model index: `docs/domain-model.md`
@@ -244,3 +473,5 @@ rng = np.random.default_rng(seed=simulation.seed)
 - Trait model specification: `docs/models/trait.md`
 - Additional model docs: `docs/models/*.md`
 - Analytics scripts: `analytics/` (comprehensive_analytics.py, chart_phenotype.py, etc.)
+- Batch analysis tools: `BATCH_ANALYSIS_DOCUMENTATION.md` (batch_analysis.py, batch_analysis_combined.py, batch_analysis_combined_desired.py)
+- Existing runs: `run2/`, `run3/`, `run4/`, `run5/` (use as templates)

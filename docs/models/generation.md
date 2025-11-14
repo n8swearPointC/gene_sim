@@ -32,11 +32,12 @@ A **Generation** represents a single iteration in the simulation timeline. It tr
 4. **Persist all offspring immediately** (all creatures are persisted upon creation):
    - **All offspring are persisted to database immediately** when created, before any further processing
    - This ensures all creatures have IDs from the start
-5. **Remove some offspring** (based on `offspring_removal_rate` configuration):
-   - Randomly select offspring to remove (sold/given away)
-   - Removed offspring are already persisted (from step 4) and remain in historical records
-   - Removed offspring do not enter the breeding pool
-6. **Add remaining offspring** to population (they already have IDs from step 4) (see [Population Model](population.md))
+5. **Distribute offspring with capacity enforcement** (see [Breeder Model](breeder.md) section 4):
+   - Each breeder evaluates replacement needs (parents nearing end of life, proactive genotype improvements)
+   - Breeders keep best offspring up to available capacity (max_creatures - current_count)
+   - Other breeders can claim remaining offspring if they have capacity
+   - Excess offspring are "homed" (marked `is_homed = True`, removed from breeding pool but alive in database)
+6. **Add non-homed offspring** to population (they already have IDs from step 4) (see [Population Model](population.md))
 7. **Get aged-out creatures** for current generation (see [Population Model](population.md))
 8. **Remove aged-out creatures** from working pool (they are already persisted - see [Creature Model](creature.md) section 8.3)
 9. **Calculate statistics** (genotype frequencies, diversity metrics)
@@ -62,9 +63,9 @@ Generation statistics are calculated before persistence:
 - Number of eligible males/females
 - Age distribution
 - Sex ratio
-- Number of births (total offspring created this generation, including removed ones)
+- Number of births (total offspring created this generation)
 - Number of deaths (creatures aged out this generation)
-- Number of removed offspring (sold/given away, persisted but not added to breeding pool)
+- Number of homed offspring (marked is_homed=True, removed from breeding pool but alive in database)
 
 **Genetic:**
 - Genotype frequencies per trait (from working pool)
@@ -73,7 +74,7 @@ Generation statistics are calculated before persistence:
 - Genotype diversity per trait (number of distinct genotypes present)
 - Phenotype distributions (can be calculated post-simulation from persisted data)
 
-**Note:** Statistics are calculated from the in-memory working pool. All creatures are already persisted immediately upon creation (before statistics calculation), so persistence does not affect statistics. The `births` statistic includes all offspring created (both removed and remaining), while population size reflects only creatures in the breeding pool.
+**Note:** Statistics are calculated from the in-memory working pool. All creatures are already persisted immediately upon creation (before statistics calculation), so persistence does not affect statistics. The `births` statistic includes all offspring created, while population size reflects only non-homed creatures in the breeding pool. Homed creatures are excluded from breeding but remain alive in the database for historical tracking.
 
 ---
 
@@ -82,7 +83,7 @@ Generation statistics are calculated before persistence:
 **CRITICAL: All creatures are persisted immediately upon creation** (see [Creature Model](creature.md) section 8.3).
 
 Generation coordinates persistence of:
-- **Creatures:** All offspring are persisted immediately when created (before removal logic or adding to population)
+- **Creatures:** All offspring are persisted immediately when created (before capacity enforcement or adding to population)
 - **Generation Statistics:** Aggregated metrics for this generation (see section 4):
   - Demographic stats → `generation_stats` table
   - Genotype frequencies → `generation_genotype_frequencies` table (one row per genotype)

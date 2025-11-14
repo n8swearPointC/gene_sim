@@ -76,6 +76,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
                 simulation_id INTEGER NOT NULL,
                 breeder_index INTEGER NOT NULL CHECK(breeder_index >= 0),
                 breeder_type TEXT NOT NULL CHECK(breeder_type IN ('random', 'inbreeding_avoidance', 'kennel_club', 'mill')),
+                max_creatures INTEGER NOT NULL DEFAULT 7 CHECK(max_creatures > 0),
                 FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id) ON DELETE CASCADE,
                 UNIQUE(simulation_id, breeder_index)
             )

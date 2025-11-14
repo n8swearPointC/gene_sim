@@ -1,0 +1,360 @@
+# Run 5 Configuration - Selective Breeding Study
+# Copy of Run 3
+# 200 creatures, 6 years, 20 total breeders (19 kennels, 1 mill)
+# Testing kennel vs mill breeding strategies at larger scale
+
+seed: 7000
+years: 6
+mode: monitor
+initial_population_size: 200
+
+initial_sex_ratio:
+  male: 0.5
+  female: 0.5
+
+creature_archetype:
+  # Cycle-based configuration
+  lifespan:
+    min: 3.25
+    max: 5
+  sexual_maturity_months: 6
+  max_fertility_age_years:
+    male: 4.5
+    female: 4.25
+  gestation_period_days: 65
+  nursing_period_days: 28
+  menstrual_cycle_days: 24
+  nearing_end_cycles: 12
+  remove_ineligible_immediately: false
+  litter_size:
+    min: 3
+    max: 6
+
+# 3 DESIRABLE TRAITS
+# 1 dominant (homo dominant = 0%)
+# 2 recessive
+target_phenotypes:
+  - trait_id: 0
+    phenotype: "Emerald Eyes"  # Dominant desirable (rare)
+  - trait_id: 1
+    phenotype: "Silky Coat"    # Recessive desirable (rare)
+  - trait_id: 2
+    phenotype: "Long Tail"     # Recessive desirable (rare)
+
+# 12 UNDESIRABLE TRAITS
+# 3 with recessive undesirable phenotype
+undesirable_phenotypes:
+  - trait_id: 3
+    phenotype: "Weak Bones"    # Recessive undesirable [.6, .2, .2]
+  - trait_id: 4
+    phenotype: "Poor Vision"   # Recessive undesirable [.25, .5, .25]
+  - trait_id: 5
+    phenotype: "Thin Fur"      # Recessive undesirable [.2, .2, .6]
+  
+  # 6 with dominant undesirable phenotype
+  - trait_id: 6
+    phenotype: "Aggression"    # Dominant undesirable [.6, .2, .2]
+  - trait_id: 7
+    phenotype: "Hip Issues"    # Dominant undesirable [.6, .2, .2]
+  - trait_id: 8
+    phenotype: "Skin Problems" # Dominant undesirable [.25, .5, .25]
+  - trait_id: 9
+    phenotype: "Heart Defect"  # Dominant undesirable [.25, .5, .25]
+  - trait_id: 10
+    phenotype: "Seizures"      # Dominant undesirable [.2, .2, .6]
+  - trait_id: 11
+    phenotype: "Blindness"     # Dominant undesirable [.2, .2, .6]
+
+# Genotype preferences for kennel club breeders
+genotype_preferences:
+  # DESIRABLE TRAITS - breed toward these
+  - trait_id: 0  # Emerald Eyes (dominant desirable)
+    optimal:
+      - "EE"
+    acceptable:
+      - "Ee"
+    undesirable:
+      - "ee"
+  
+  - trait_id: 1  # Silky Coat (recessive desirable)
+    optimal:
+      - "SS"
+    acceptable:
+      - "Ss"
+    undesirable:
+      - "ss"
+  
+  - trait_id: 2  # Long Tail (recessive desirable)
+    optimal:
+      - "LL"
+    acceptable:
+      - "Ll"
+    undesirable:
+      - "ll"
+  
+  # UNDESIRABLE TRAITS - avoid these
+  - trait_id: 3  # Weak Bones (recessive undesirable)
+    optimal:
+      - "WW"
+    acceptable:
+      - "Ww"
+    undesirable:
+      - "ww"
+  
+  - trait_id: 4  # Poor Vision (recessive undesirable)
+    optimal:
+      - "VV"
+    acceptable:
+      - "Vv"
+    undesirable:
+      - "vv"
+  
+  - trait_id: 5  # Thin Fur (recessive undesirable)
+    optimal:
+      - "FF"
+    acceptable:
+      - "Ff"
+    undesirable:
+      - "ff"
+  
+  - trait_id: 6  # Aggression (dominant undesirable)
+    optimal:
+      - "aa"
+    acceptable:
+      - "Aa"
+    undesirable:
+      - "AA"
+  
+  - trait_id: 7  # Hip Issues (dominant undesirable)
+    optimal:
+      - "hh"
+    acceptable:
+      - "Hh"
+    undesirable:
+      - "HH"
+  
+  - trait_id: 8  # Skin Problems (dominant undesirable)
+    optimal:
+      - "kk"
+    acceptable:
+      - "Kk"
+    undesirable:
+      - "KK"
+  
+  - trait_id: 9  # Heart Defect (dominant undesirable)
+    optimal:
+      - "dd"
+    acceptable:
+      - "Dd"
+    undesirable:
+      - "DD"
+  
+  - trait_id: 10  # Seizures (dominant undesirable)
+    optimal:
+      - "zz"
+    acceptable:
+      - "Zz"
+    undesirable:
+      - "ZZ"
+  
+  - trait_id: 11  # Blindness (dominant undesirable)
+    optimal:
+      - "bb"
+    acceptable:
+      - "Bb"
+    undesirable:
+      - "BB"
+
+# Breeder configuration - 19/1 split (95% kennels, 5% mills)
+breeders:
+  random: 0
+  inbreeding_avoidance: 0
+  kennel_club: 19  # 95% kennels
+  mill: 1          # 5% mills
+
+traits:
+  # === DESIRABLE TRAITS ===
+  
+  # Trait 0: Eye Color - DOMINANT DESIRABLE (Emerald rare)
+  - trait_id: 0
+    name: "Eye Color"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "EE"
+        phenotype: "Emerald Eyes"  # Dominant desirable
+        initial_freq: 0.0           # 0% homo dominant
+      - genotype: "Ee"
+        phenotype: "Emerald Eyes"  # Dominant desirable
+        initial_freq: 0.1           # 10% hetero (rare)
+      - genotype: "ee"
+        phenotype: "Brown Eyes"    # Common
+        initial_freq: 0.9           # 90% homo recessive
+  
+  # Trait 1: Coat Texture - RECESSIVE DESIRABLE (Silky rare)
+  - trait_id: 1
+    name: "Coat Texture"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "SS"
+        phenotype: "Silky Coat"    # Recessive desirable
+        initial_freq: 0.04          # 4% (rare)
+      - genotype: "Ss"
+        phenotype: "Normal Coat"   # Carrier
+        initial_freq: 0.32          # 32%
+      - genotype: "ss"
+        phenotype: "Normal Coat"   # Common
+        initial_freq: 0.64          # 64%
+  
+  # Trait 2: Tail Length - RECESSIVE DESIRABLE (Long rare)
+  - trait_id: 2
+    name: "Tail Length"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "LL"
+        phenotype: "Long Tail"     # Recessive desirable
+        initial_freq: 0.01          # 1% (very rare)
+      - genotype: "Ll"
+        phenotype: "Medium Tail"   # Carrier
+        initial_freq: 0.18          # 18%
+      - genotype: "ll"
+        phenotype: "Medium Tail"   # Common
+        initial_freq: 0.81          # 81%
+  
+  # === UNDESIRABLE TRAITS - RECESSIVE ===
+  
+  # Trait 3: Bone Strength - RECESSIVE UNDESIRABLE [.6, .2, .2]
+  - trait_id: 3
+    name: "Bone Strength"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "WW"
+        phenotype: "Strong Bones"  # Optimal
+        initial_freq: 0.6
+      - genotype: "Ww"
+        phenotype: "Normal Bones"  # Acceptable (carrier)
+        initial_freq: 0.2
+      - genotype: "ww"
+        phenotype: "Weak Bones"    # UNDESIRABLE
+        initial_freq: 0.2
+  
+  # Trait 4: Vision - RECESSIVE UNDESIRABLE [.25, .5, .25]
+  - trait_id: 4
+    name: "Vision"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "VV"
+        phenotype: "Good Vision"   # Optimal
+        initial_freq: 0.25
+      - genotype: "Vv"
+        phenotype: "Normal Vision" # Acceptable (carrier)
+        initial_freq: 0.5
+      - genotype: "vv"
+        phenotype: "Poor Vision"   # UNDESIRABLE
+        initial_freq: 0.25
+  
+  # Trait 5: Fur Density - RECESSIVE UNDESIRABLE [.2, .2, .6]
+  - trait_id: 5
+    name: "Fur Density"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "FF"
+        phenotype: "Thick Fur"     # Optimal
+        initial_freq: 0.2
+      - genotype: "Ff"
+        phenotype: "Normal Fur"    # Acceptable (carrier)
+        initial_freq: 0.2
+      - genotype: "ff"
+        phenotype: "Thin Fur"      # UNDESIRABLE
+        initial_freq: 0.6
+  
+  # === UNDESIRABLE TRAITS - DOMINANT ===
+  
+  # Trait 6: Temperament - DOMINANT UNDESIRABLE [.6, .2, .2]
+  - trait_id: 6
+    name: "Temperament"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "AA"
+        phenotype: "Aggression"    # UNDESIRABLE (dominant)
+        initial_freq: 0.6
+      - genotype: "Aa"
+        phenotype: "Aggression"    # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "aa"
+        phenotype: "Calm"          # Optimal (recessive)
+        initial_freq: 0.2
+  
+  # Trait 7: Hip Health - DOMINANT UNDESIRABLE [.6, .2, .2]
+  - trait_id: 7
+    name: "Hip Health"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "HH"
+        phenotype: "Hip Issues"    # UNDESIRABLE (dominant)
+        initial_freq: 0.6
+      - genotype: "Hh"
+        phenotype: "Hip Issues"    # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "hh"
+        phenotype: "Healthy Hips"  # Optimal (recessive)
+        initial_freq: 0.2
+  
+  # Trait 8: Skin Health - DOMINANT UNDESIRABLE [.25, .5, .25]
+  - trait_id: 8
+    name: "Skin Health"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "KK"
+        phenotype: "Skin Problems" # UNDESIRABLE (dominant)
+        initial_freq: 0.25
+      - genotype: "Kk"
+        phenotype: "Skin Problems" # UNDESIRABLE (dominant)
+        initial_freq: 0.5
+      - genotype: "kk"
+        phenotype: "Healthy Skin"  # Optimal (recessive)
+        initial_freq: 0.25
+  
+  # Trait 9: Heart Health - DOMINANT UNDESIRABLE [.25, .5, .25]
+  - trait_id: 9
+    name: "Heart Health"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "DD"
+        phenotype: "Heart Defect"  # UNDESIRABLE (dominant)
+        initial_freq: 0.25
+      - genotype: "Dd"
+        phenotype: "Heart Defect"  # UNDESIRABLE (dominant)
+        initial_freq: 0.5
+      - genotype: "dd"
+        phenotype: "Healthy Heart" # Optimal (recessive)
+        initial_freq: 0.25
+  
+  # Trait 10: Neurological - DOMINANT UNDESIRABLE [.2, .2, .6]
+  - trait_id: 10
+    name: "Neurological Health"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "ZZ"
+        phenotype: "Seizures"      # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "Zz"
+        phenotype: "Seizures"      # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "zz"
+        phenotype: "Healthy"       # Optimal (recessive)
+        initial_freq: 0.6
+  
+  # Trait 11: Eye Health - DOMINANT UNDESIRABLE [.2, .2, .6]
+  - trait_id: 11
+    name: "Eye Health"
+    trait_type: SIMPLE_MENDELIAN
+    genotypes:
+      - genotype: "BB"
+        phenotype: "Blindness"     # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "Bb"
+        phenotype: "Blindness"     # UNDESIRABLE (dominant)
+        initial_freq: 0.2
+      - genotype: "bb"
+        phenotype: "Healthy Eyes"  # Optimal (recessive)
+        initial_freq: 0.6

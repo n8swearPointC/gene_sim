@@ -232,8 +232,12 @@ class Cycle:
         # Rule 1: Breeder keeps offspring when parent is nearing end of reproduction
         # Rule 2: Breeder keeps offspring when they have predicted replacement needs
         # Offspring are strategically selected based on breeder criteria
+        # CAPACITY RULE: Breeders can only keep offspring if they have capacity (max_creatures)
         removed_offspring = []
         remaining_offspring = []
+        
+        # Get current capacity info for all breeders
+        capacity_info = self._get_breeder_capacity_info(breeders, population)
         
         # Also allow other breeders to claim offspring from this batch for their replacement needs
         available_for_claim = []
@@ -250,6 +254,59 @@ class Cycle:
         for breeder_id, breeder_offspring in offspring_by_breeder.items():
             # Find the breeder object
             breeder_obj = next((b for b in breeders if b.breeder_id == breeder_id), None)
+            
+            # KENNEL CLUB FIRST DIBS: Evaluate offspring vs parents for kennels
+            # Kennels get to compare their offspring to parents and keep superior offspring,
+            # trading inferior parents to make room
+            kennel_kept_offspring = []
+            kennel_traded_parents = []
+            kennel_released_offspring = breeder_offspring.copy()  # Start with all as released
+            
+            from .breeder import KennelClubBreeder
+            if breeder_obj and isinstance(breeder_obj, KennelClubBreeder):
+                # Get current parents owned by this breeder
+                current_parents = [c for c in population.creatures 
+                                  if c.breeder_id == breeder_id and not c.is_homed]
+                
+                # Evaluate offspring vs parents
+                evaluation = breeder_obj.evaluate_offspring_vs_parents(
+                    breeder_offspring, current_parents, rng
+                )
+                
+                kennel_kept_offspring = evaluation['keep_offspring']
+                kennel_traded_parents = evaluation['trade_parents']
+                kennel_released_offspring = evaluation['release_offspring']
+                
+                # Check capacity constraints - can we actually keep all the offspring we want?
+                if breeder_id in capacity_info:
+                    current_count, max_creatures, has_space = capacity_info[breeder_id]
+                    available_space = max(0, max_creatures - current_count)
+                    
+                    # Account for trading parents (they free up space)
+                    space_after_trades = available_space + len(kennel_traded_parents)
+                    
+                    # If we don't have enough space even after trades, limit what we keep
+                    if len(kennel_kept_offspring) > space_after_trades:
+                        # Keep only what fits, release the rest
+                        can_keep = kennel_kept_offspring[:space_after_trades]
+                        must_release = kennel_kept_offspring[space_after_trades:]
+                        kennel_kept_offspring = can_keep
+                        kennel_released_offspring.extend(must_release)
+                
+                # Home out traded parents
+                for parent in kennel_traded_parents:
+                    parent.is_homed = True
+                    cursor = db_conn.cursor()
+                    cursor.execute("""
+                        UPDATE creatures SET is_homed = 1 WHERE creature_id = ?
+                    """, (parent.creature_id,))
+                
+                # Update capacity_info to reflect trades and kept offspring
+                if breeder_id in capacity_info:
+                    current_count, max_creatures, has_space = capacity_info[breeder_id]
+                    # Subtract traded parents, add kept offspring
+                    new_count = current_count - len(kennel_traded_parents) + len(kennel_kept_offspring)
+                    capacity_info[breeder_id] = (new_count, max_creatures, new_count < max_creatures)
             
             # Check if any parent is nearing end of reproduction
             parent_nearing_end_male = False
@@ -282,18 +339,44 @@ class Cycle:
             need_male_replacements = max(0, total_need_male - already_acquired_male)
             need_female_replacements = max(0, total_need_female - already_acquired_female)
             
-            kept_offspring = []
+            # CRITICAL: Enforce capacity limits - can't keep more offspring than available space
+            if breeder_id in capacity_info:
+                current_count, max_creatures, has_space = capacity_info[breeder_id]
+                available_space = max(0, max_creatures - current_count)
+                
+                # Limit replacements to available space
+                total_can_keep = min(need_male_replacements + need_female_replacements, available_space)
+                
+                # If we can't keep all needed replacements, prioritize based on need
+                if total_can_keep < (need_male_replacements + need_female_replacements):
+                    # Proportionally reduce each based on need
+                    if (need_male_replacements + need_female_replacements) > 0:
+                        male_ratio = need_male_replacements / (need_male_replacements + need_female_replacements)
+                        need_male_replacements = int(total_can_keep * male_ratio)
+                        need_female_replacements = total_can_keep - need_male_replacements
+                    else:
+                        need_male_replacements = 0
+                        need_female_replacements = 0
+            
+            # Initialize kept_offspring - for kennels, start with what they kept via first dibs
+            kept_offspring = kennel_kept_offspring.copy() if kennel_kept_offspring else []
+            kept_offspring_set = set(c.creature_id for c in kept_offspring)  # Set for O(1) lookup performance
             parents_to_remove = []  # Track parents being actively replaced
+            
+            # For kennels, use released offspring (not all offspring) for additional replacement selections
+            # For other breeders, use all offspring
+            offspring_pool_for_replacements = kennel_released_offspring if kennel_released_offspring else breeder_offspring
             
             # Keep only the exact number of replacements still needed
             if need_male_replacements > 0 and breeder_obj:
                 # Select best male offspring to keep
                 for _ in range(need_male_replacements):
-                    remaining_males = [c for c in breeder_offspring if c.sex == 'male' and c not in kept_offspring]
+                    remaining_males = [c for c in offspring_pool_for_replacements if c.sex == 'male' and c.creature_id not in kept_offspring_set]
                     if remaining_males:
                         best_male = breeder_obj.select_replacement(remaining_males, 'male', traits, rng)
                         if best_male:
                             kept_offspring.append(best_male)
+                            kept_offspring_set.add(best_male.creature_id)
                             
                             # ACTIVE REMOVAL: If this is kennel club and offspring is optimal, remove sub-optimal parent
                             from .breeder import KennelClubBreeder
@@ -326,11 +409,12 @@ class Cycle:
             if need_female_replacements > 0 and breeder_obj:
                 # Select best female offspring to keep
                 for _ in range(need_female_replacements):
-                    remaining_females = [c for c in breeder_offspring if c.sex == 'female' and c not in kept_offspring]
+                    remaining_females = [c for c in offspring_pool_for_replacements if c.sex == 'female' and c.creature_id not in kept_offspring_set]
                     if remaining_females:
                         best_female = breeder_obj.select_replacement(remaining_females, 'female', traits, rng)
                         if best_female:
                             kept_offspring.append(best_female)
+                            kept_offspring_set.add(best_female.creature_id)
                             
                             # ACTIVE REMOVAL: If this is kennel club and offspring is optimal, remove sub-optimal parent
                             from .breeder import KennelClubBreeder
@@ -368,10 +452,23 @@ class Cycle:
                 cursor.execute("""
                     UPDATE creatures SET is_homed = 1 WHERE creature_id = ?
                 """, (parent.creature_id,))
+                
+                # Update capacity_info to reflect parent removal
+                if breeder_id in capacity_info:
+                    current_count, max_creatures, has_space = capacity_info[breeder_id]
+                    capacity_info[breeder_id] = (current_count - 1, max_creatures, (current_count - 1) < max_creatures)
+            
+            # Update capacity_info to reflect kept offspring
+            if breeder_id in capacity_info and len(kept_offspring) > 0:
+                current_count, max_creatures, has_space = capacity_info[breeder_id]
+                new_count = current_count + len(kept_offspring)
+                capacity_info[breeder_id] = (new_count, max_creatures, new_count < max_creatures)
             
             # Add kept offspring to remaining, make others available for other breeders
             remaining_offspring.extend(kept_offspring)
-            for child in breeder_offspring:
+            # For kennels, only released offspring are available; for others, use all except kept
+            offspring_to_check = kennel_released_offspring if kennel_released_offspring else breeder_offspring
+            for child in offspring_to_check:
                 if child not in kept_offspring:
                     available_for_claim.append(child)
         
@@ -389,7 +486,26 @@ class Cycle:
             still_need_males = max(0, need_male - already_acquired_males)
             still_need_females = max(0, need_female - already_acquired_females)
             
+            # CRITICAL: Enforce capacity limits when claiming offspring
+            if breeder.breeder_id in capacity_info:
+                current_count, max_creatures, has_space = capacity_info[breeder.breeder_id]
+                available_space = max(0, max_creatures - current_count)
+                
+                # Limit claims to available space
+                total_can_claim = min(still_need_males + still_need_females, available_space)
+                
+                if total_can_claim < (still_need_males + still_need_females):
+                    # Proportionally reduce each based on need
+                    if (still_need_males + still_need_females) > 0:
+                        male_ratio = still_need_males / (still_need_males + still_need_females)
+                        still_need_males = int(total_can_claim * male_ratio)
+                        still_need_females = total_can_claim - still_need_males
+                    else:
+                        still_need_males = 0
+                        still_need_females = 0
+            
             # Try to claim males
+            males_claimed = 0
             for _ in range(still_need_males):
                 males_available = [c for c in available_for_claim if c.sex == 'male']
                 if males_available:
@@ -399,8 +515,10 @@ class Cycle:
                         best_male.breeder_id = breeder.breeder_id
                         remaining_offspring.append(best_male)
                         available_for_claim.remove(best_male)
+                        males_claimed += 1
             
             # Try to claim females
+            females_claimed = 0
             for _ in range(still_need_females):
                 females_available = [c for c in available_for_claim if c.sex == 'female']
                 if females_available:
@@ -410,6 +528,13 @@ class Cycle:
                         best_female.breeder_id = breeder.breeder_id
                         remaining_offspring.append(best_female)
                         available_for_claim.remove(best_female)
+                        females_claimed += 1
+            
+            # Update capacity_info to reflect claimed offspring
+            if breeder.breeder_id in capacity_info and (males_claimed + females_claimed) > 0:
+                current_count, max_creatures, has_space = capacity_info[breeder.breeder_id]
+                new_count = current_count + males_claimed + females_claimed
+                capacity_info[breeder.breeder_id] = (new_count, max_creatures, new_count < max_creatures)
         
         # Clear the acquisition counters for next cycle
         for breeder in breeders:
@@ -441,15 +566,17 @@ class Cycle:
                         )
                     child.parent2_id = parent2.creature_id
         
-        # Mark homed offspring as homed (still alive, but not in breeding pool)
+        # Mark homed offspring as homed (still alive in DB, but not in breeding pool)
         for child in homed_offspring:
             child.is_homed = True
         
         # Persist all offspring immediately (both homed and kept)
         if all_offspring:
             population._persist_creatures(db_conn, simulation_id, all_offspring)
-            # Add all offspring to population (including homed ones - they're alive, just not for breeding)
-            population.add_creatures(all_offspring, current_cycle)
+            # Add only non-homed offspring to working population
+            # Homed offspring are in database but removed from memory for performance
+            non_homed_offspring = [c for c in all_offspring if not c.is_homed]
+            population.add_creatures(non_homed_offspring, current_cycle)
         
         # 8. Handle ownership transfers (after offspring are determined)
         # New rules: no transfer until breeding, no transfer if gestating/nursing, only one per cycle
@@ -666,11 +793,11 @@ class Cycle:
         
         homed_out = males_to_home + females_to_home
         
-        # Mark creatures as homed (still alive, just not in breeding pool)
+        # Mark creatures as homed and update database
         if homed_out:
             cursor = db_conn.cursor()
             for creature in homed_out:
-                # Mark as homed (stays alive but removed from breeding pool)
+                # Mark as homed (stays alive in DB but removed from breeding pool)
                 creature.is_homed = True
                 
                 # Update in database
@@ -681,8 +808,97 @@ class Cycle:
                 """, (creature.creature_id,))
             
             db_conn.commit()
+            
+            # Remove homed creatures from working memory for performance
+            population.remove_homed_creatures(homed_out)
         
         return len(homed_out)
+    
+    def _get_breeder_capacity_info(
+        self,
+        breeders: List['Breeder'],
+        population: 'Population'
+    ) -> Dict[int, tuple]:
+        """
+        Get capacity information for all breeders.
+        
+        Returns:
+            Dict mapping breeder_id to (current_count, max_creatures, has_space)
+        """
+        capacity_info = {}
+        for breeder in breeders:
+            if breeder.breeder_id is None:
+                continue
+            
+            # Count current living creatures owned by this breeder
+            current_count = sum(
+                1 for c in population.creatures
+                if c.breeder_id == breeder.breeder_id and c.is_alive and not c.is_homed
+            )
+            
+            max_creatures = breeder.max_creatures
+            has_space = current_count < max_creatures
+            
+            capacity_info[breeder.breeder_id] = (current_count, max_creatures, has_space)
+        
+        return capacity_info
+    
+    def _assign_offspring_with_capacity_check(
+        self,
+        offspring: 'Creature',
+        preferred_breeder_id: int,
+        breeders: List['Breeder'],
+        capacity_info: Dict[int, tuple],
+        population: 'Population'
+    ) -> tuple:
+        """
+        Assign offspring to a breeder, respecting capacity limits.
+        
+        Priority:
+        1. Assign to preferred breeder if they have space
+        2. Transfer to another breeder with space
+        3. Mark as homed if all breeders are at capacity
+        
+        Args:
+            offspring: Creature to assign
+            preferred_breeder_id: Preferred breeder ID (usually mother's breeder)
+            breeders: List of all breeders
+            capacity_info: Dict of capacity info (from _get_breeder_capacity_info)
+            population: Current population
+            
+        Returns:
+            Tuple of (assigned_breeder_id, was_transferred, was_homed)
+        """
+        # Check if preferred breeder has space
+        if preferred_breeder_id in capacity_info:
+            current_count, max_creatures, has_space = capacity_info[preferred_breeder_id]
+            
+            if has_space:
+                # Assign to preferred breeder
+                offspring.breeder_id = preferred_breeder_id
+                # Update capacity info
+                capacity_info[preferred_breeder_id] = (current_count + 1, max_creatures, (current_count + 1) < max_creatures)
+                return (preferred_breeder_id, False, False)
+        
+        # Preferred breeder is at capacity - try to find another breeder with space
+        for breeder in breeders:
+            if breeder.breeder_id is None or breeder.breeder_id == preferred_breeder_id:
+                continue
+            
+            if breeder.breeder_id in capacity_info:
+                current_count, max_creatures, has_space = capacity_info[breeder.breeder_id]
+                
+                if has_space:
+                    # Transfer to this breeder
+                    offspring.breeder_id = breeder.breeder_id
+                    # Update capacity info
+                    capacity_info[breeder.breeder_id] = (current_count + 1, max_creatures, (current_count + 1) < max_creatures)
+                    return (breeder.breeder_id, True, False)
+        
+        # All breeders are at capacity - home the offspring
+        offspring.breeder_id = preferred_breeder_id  # Keep original ownership for tracking
+        offspring.is_homed = True
+        return (preferred_breeder_id, False, True)
     
     def _handle_ownership_transfers(
         self,

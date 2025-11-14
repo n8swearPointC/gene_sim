@@ -1,0 +1,210 @@
+{
+  "timestamp": "2025-11-12T22:22:26.021748",
+  "config_path": "quick_test_config.yaml",
+  "base_config": {
+    "seed": 12345,
+    "years": 2,
+    "mode": "monitor",
+    "initial_population_size": 10,
+    "initial_sex_ratio": {
+      "male": 0.5,
+      "female": 0.5
+    },
+    "creature_archetype": {
+      "lifespan": {
+        "min": 3.25,
+        "max": 5
+      },
+      "sexual_maturity_months": 6,
+      "max_fertility_age_years": {
+        "male": 4.5,
+        "female": 4.25
+      },
+      "gestation_period_days": 65,
+      "nursing_period_days": 28,
+      "menstrual_cycle_days": 24,
+      "nearing_end_cycles": 12,
+      "remove_ineligible_immediately": false,
+      "litter_size": {
+        "min": 3,
+        "max": 6
+      }
+    },
+    "target_phenotypes": [
+      {
+        "trait_id": 0,
+        "phenotype": "Brown"
+      }
+    ],
+    "undesirable_phenotypes": [
+      {
+        "trait_id": 1,
+        "phenotype": "Small"
+      }
+    ],
+    "genotype_preferences": [
+      {
+        "trait_id": 1,
+        "optimal": [
+          "LL"
+        ],
+        "acceptable": [
+          "Ll"
+        ],
+        "undesirable": [
+          "ll"
+        ]
+      }
+    ],
+    "breeders": {
+      "random": 0,
+      "inbreeding_avoidance": 0,
+      "kennel_club": 5,
+      "mill": 10
+    },
+    "traits": [
+      {
+        "trait_id": 0,
+        "name": "Coat Color",
+        "trait_type": "SIMPLE_MENDELIAN",
+        "genotypes": [
+          {
+            "genotype": "BB",
+            "phenotype": "Black",
+            "initial_freq": 0.25
+          },
+          {
+            "genotype": "Bb",
+            "phenotype": "Black",
+            "initial_freq": 0.5
+          },
+          {
+            "genotype": "bb",
+            "phenotype": "Brown",
+            "initial_freq": 0.25
+          }
+        ]
+      },
+      {
+        "trait_id": 1,
+        "name": "Body Size",
+        "trait_type": "SIMPLE_MENDELIAN",
+        "genotypes": [
+          {
+            "genotype": "LL",
+            "phenotype": "Large",
+            "initial_freq": 0
+          },
+          {
+            "genotype": "Ll",
+            "phenotype": "Large",
+            "initial_freq": 0.25
+          },
+          {
+            "genotype": "ll",
+            "phenotype": "Small",
+            "initial_freq": 0.75
+          }
+        ]
+      },
+      {
+        "trait_id": 2,
+        "name": "Eye Color",
+        "trait_type": "SIMPLE_MENDELIAN",
+        "genotypes": [
+          {
+            "genotype": "EE",
+            "phenotype": "Brown",
+            "initial_freq": 0.36
+          },
+          {
+            "genotype": "Ee",
+            "phenotype": "Brown",
+            "initial_freq": 0.48
+          },
+          {
+            "genotype": "ee",
+            "phenotype": "Blue",
+            "initial_freq": 0.16
+          }
+        ]
+      },
+      {
+        "trait_id": 3,
+        "name": "Tail Length",
+        "trait_type": "SIMPLE_MENDELIAN",
+        "genotypes": [
+          {
+            "genotype": "TT",
+            "phenotype": "Long",
+            "initial_freq": 0.49
+          },
+          {
+            "genotype": "Tt",
+            "phenotype": "Long",
+            "initial_freq": 0.42
+          },
+          {
+            "genotype": "tt",
+            "phenotype": "Short",
+            "initial_freq": 0.09
+          }
+        ]
+      },
+      {
+        "trait_id": 4,
+        "name": "Ear Shape",
+        "trait_type": "SIMPLE_MENDELIAN",
+        "genotypes": [
+          {
+            "genotype": "PP",
+            "phenotype": "Pointed",
+            "initial_freq": 0.64
+          },
+          {
+            "genotype": "Pp",
+            "phenotype": "Pointed",
+            "initial_freq": 0.32
+          },
+          {
+            "genotype": "pp",
+            "phenotype": "Rounded",
+            "initial_freq": 0.04
+          }
+        ]
+      }
+    ]
+  },
+  "num_runs": 3,
+  "base_seed": 100,
+  "total_time_seconds": 13.5111083984375,
+  "results": [
+    {
+      "run_number": 1,
+      "seed": 100,
+      "runtime_seconds": 4.87174139986746,
+      "final_generation": 29,
+      "final_population_size": 352,
+      "total_creatures_created": 356,
+      "database_path": "batch_results_20251112_222212\\simulation_run_001_seed_100.db"
+    },
+    {
+      "run_number": 2,
+      "seed": 101,
+      "runtime_seconds": 4.244641300057992,
+      "final_generation": 29,
+      "final_population_size": 412,
+      "total_creatures_created": 414,
+      "database_path": "batch_results_20251112_222212\\simulation_run_002_seed_101.db"
+    },
+    {
+      "run_number": 3,
+      "seed": 102,
+      "runtime_seconds": 4.360435799928382,
+      "final_generation": 29,
+      "final_population_size": 476,
+      "total_creatures_created": 479,
+      "database_path": "batch_results_20251112_222212\\simulation_run_003_seed_102.db"
+    }
+  ]
+}

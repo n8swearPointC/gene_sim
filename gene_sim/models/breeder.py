@@ -19,7 +19,8 @@ class Breeder(ABC):
         undesirable_phenotypes: Optional[List[dict]] = None,
         undesirable_genotypes: Optional[List[dict]] = None,
         avoid_undesirable_phenotypes: bool = False,
-        avoid_undesirable_genotypes: bool = False
+        avoid_undesirable_genotypes: bool = False,
+        max_creatures: int = 7
     ):
         """
         Initialize breeder.
@@ -29,12 +30,14 @@ class Breeder(ABC):
             undesirable_genotypes: List of {trait_id, genotype} dicts to avoid
             avoid_undesirable_phenotypes: If True, filter out creatures with undesirable phenotypes
             avoid_undesirable_genotypes: If True, filter out creatures with undesirable genotypes
+            max_creatures: Maximum number of creatures this breeder can own
         """
         self.breeder_id: Optional[int] = None
         self.undesirable_phenotypes = undesirable_phenotypes or []
         self.undesirable_genotypes = undesirable_genotypes or []
         self.avoid_undesirable_phenotypes = avoid_undesirable_phenotypes
         self.avoid_undesirable_genotypes = avoid_undesirable_genotypes
+        self.max_creatures = max_creatures
     
     def _has_undesirable_phenotype(self, creature: 'Creature', traits: List) -> bool:
         """Check if creature has any undesirable phenotype."""
@@ -192,7 +195,8 @@ class InbreedingAvoidanceBreeder(Breeder):
         undesirable_phenotypes: Optional[List[dict]] = None,
         undesirable_genotypes: Optional[List[dict]] = None,
         avoid_undesirable_phenotypes: bool = False,
-        avoid_undesirable_genotypes: bool = False
+        avoid_undesirable_genotypes: bool = False,
+        max_creatures: int = 7
     ):
         """
         Initialize inbreeding avoidance breeder.
@@ -203,8 +207,9 @@ class InbreedingAvoidanceBreeder(Breeder):
             undesirable_genotypes: List of {trait_id, genotype} dicts to avoid
             avoid_undesirable_phenotypes: If True, filter out creatures with undesirable phenotypes
             avoid_undesirable_genotypes: If True, filter out creatures with undesirable genotypes
+            max_creatures: Maximum number of creatures this breeder can own
         """
-        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes)
+        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes, max_creatures)
         self.max_inbreeding_coefficient = max_inbreeding_coefficient
     
     def select_pairs(
@@ -268,7 +273,8 @@ class KennelClubBreeder(Breeder):
         undesirable_genotypes: Optional[List[dict]] = None,
         genotype_preferences: Optional[List[dict]] = None,
         avoid_undesirable_phenotypes: bool = False,
-        avoid_undesirable_genotypes: bool = False
+        avoid_undesirable_genotypes: bool = False,
+        max_creatures: int = 7
     ):
         """
         Initialize kennel club breeder.
@@ -282,12 +288,16 @@ class KennelClubBreeder(Breeder):
             genotype_preferences: List of {trait_id, optimal, acceptable, undesirable} dicts
             avoid_undesirable_phenotypes: If True, filter out creatures with undesirable phenotypes
             avoid_undesirable_genotypes: If True, filter out creatures with undesirable genotypes
+            max_creatures: Maximum number of creatures this breeder can own
         """
-        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes)
+        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes, max_creatures)
         self.target_phenotypes = target_phenotypes
         self.max_inbreeding_coefficient = max_inbreeding_coefficient
         self.required_phenotype_ranges = required_phenotype_ranges or []
         self.genotype_preferences = genotype_preferences or []
+        
+        # Cache for genotype pairing scores: {(trait_id, genotype1, genotype2): score}
+        self._pairing_score_cache = {}
     
     def _get_genotype_tier(self, creature: 'Creature', trait_id: int) -> int:
         """
@@ -383,6 +393,120 @@ class KennelClubBreeder(Breeder):
         
         return True
     
+    def _calculate_offspring_probabilities(self, genotype1: str, genotype2: str) -> dict:
+        """
+        Calculate Mendelian offspring probabilities for a genotype pairing.
+        
+        Args:
+            genotype1: First parent's genotype (e.g., "Aa")
+            genotype2: Second parent's genotype (e.g., "Aa")
+            
+        Returns:
+            Dict mapping offspring genotypes to probabilities (0.0 to 1.0)
+        """
+        # Extract alleles (assumes diploid with 2-character genotypes)
+        if len(genotype1) != 2 or len(genotype2) != 2:
+            return {}
+        
+        allele1_p1, allele2_p1 = genotype1[0], genotype1[1]
+        allele1_p2, allele2_p2 = genotype2[0], genotype2[1]
+        
+        # Generate all possible offspring genotypes from Punnett square
+        offspring_counts = {}
+        for a1 in [allele1_p1, allele2_p1]:
+            for a2 in [allele1_p2, allele2_p2]:
+                # Normalize genotype (uppercase first, or alphabetical)
+                if a1.isupper() and a2.islower():
+                    offspring = a1 + a2
+                elif a2.isupper() and a1.islower():
+                    offspring = a2 + a1
+                elif a1.isupper() and a2.isupper():
+                    offspring = ''.join(sorted([a1, a2], reverse=True))
+                else:
+                    offspring = ''.join(sorted([a1, a2]))
+                
+                offspring_counts[offspring] = offspring_counts.get(offspring, 0) + 1
+        
+        # Convert counts to probabilities
+        total = sum(offspring_counts.values())
+        return {genotype: count / total for genotype, count in offspring_counts.items()}
+    
+    def _score_genotype_pairing(self, trait_id: int, genotype1: str, genotype2: str) -> float:
+        """
+        Score a genotype pairing for a specific trait based on expected offspring quality.
+        Uses caching for performance.
+        
+        Args:
+            trait_id: The trait being evaluated
+            genotype1: First parent's genotype
+            genotype2: Second parent's genotype
+            
+        Returns:
+            Score (higher is better). Weighted heavily toward optimal outcomes.
+        """
+        # Check cache first (order-independent key)
+        cache_key = (trait_id, tuple(sorted([genotype1, genotype2])))
+        if cache_key in self._pairing_score_cache:
+            return self._pairing_score_cache[cache_key]
+        
+        # Find preference config for this trait
+        pref = next((p for p in self.genotype_preferences if p['trait_id'] == trait_id), None)
+        if not pref:
+            # No preference configured, neutral score
+            self._pairing_score_cache[cache_key] = 0.0
+            return 0.0
+        
+        # Calculate offspring probabilities
+        offspring_probs = self._calculate_offspring_probabilities(genotype1, genotype2)
+        
+        # Score based on preference tiers with heavy weighting for desirable outcomes
+        score = 0.0
+        for offspring_genotype, probability in offspring_probs.items():
+            if offspring_genotype in pref.get('optimal', []):
+                # Optimal genotypes: +100 points per 100% probability
+                score += 100.0 * probability
+            elif offspring_genotype in pref.get('acceptable', []):
+                # Acceptable genotypes: +10 points per 100% probability
+                score += 10.0 * probability
+            elif offspring_genotype in pref.get('undesirable', []):
+                # Undesirable genotypes: -50 points per 100% probability
+                score -= 50.0 * probability
+        
+        self._pairing_score_cache[cache_key] = score
+        return score
+    
+    def _score_pairing(self, male: 'Creature', female: 'Creature') -> float:
+        """
+        Score a male-female pairing based on expected offspring quality across all traits.
+        
+        Args:
+            male: Male creature
+            female: Female creature
+            
+        Returns:
+            Total score (higher is better)
+        """
+        if not self.genotype_preferences:
+            return 0.0  # No preferences configured
+        
+        total_score = 0.0
+        for pref in self.genotype_preferences:
+            trait_id = pref['trait_id']
+            
+            # Get genotypes for this trait
+            if (trait_id >= len(male.genome) or male.genome[trait_id] is None or
+                trait_id >= len(female.genome) or female.genome[trait_id] is None):
+                continue
+            
+            male_genotype = male.genome[trait_id]
+            female_genotype = female.genome[trait_id]
+            
+            # Score this trait pairing
+            trait_score = self._score_genotype_pairing(trait_id, male_genotype, female_genotype)
+            total_score += trait_score
+        
+        return total_score
+    
     def select_pairs(
         self,
         eligible_males: List['Creature'],
@@ -468,6 +592,63 @@ class KennelClubBreeder(Breeder):
         if not matching_females:
             matching_females = filtered_females
         
+        # NEW: Intelligent pairing selection using genetic scoring
+        # Generate and score all possible pairings, then select best ones
+        if self.genotype_preferences and matching_males and matching_females:
+            # Generate all possible pairings
+            all_possible_pairings = []
+            for male in matching_males:
+                for female in matching_females:
+                    # Check inbreeding limit if set
+                    if self.max_inbreeding_coefficient is not None:
+                        potential_f = Creature.calculate_inbreeding_coefficient(male, female)
+                        if potential_f > self.max_inbreeding_coefficient:
+                            continue
+                    
+                    # Check phenotype ranges if set
+                    if self.required_phenotype_ranges:
+                        if not (self._matches_phenotype_ranges(male, traits) and 
+                                self._matches_phenotype_ranges(female, traits)):
+                            continue
+                    
+                    # Score this pairing based on expected offspring quality
+                    score = self._score_pairing(male, female)
+                    all_possible_pairings.append((score, male, female))
+            
+            if not all_possible_pairings:
+                # No valid pairings found, return empty
+                return []
+            
+            # Sort by score (highest first)
+            all_possible_pairings.sort(key=lambda x: x[0], reverse=True)
+            
+            # Select best unique pairings (avoid reusing same creature multiple times if possible)
+            pairs = []
+            used_males = set()
+            used_females = set()
+            
+            # First pass: select best non-overlapping pairings
+            for score, male, female in all_possible_pairings:
+                if len(pairs) >= num_pairs:
+                    break
+                if male.creature_id not in used_males and female.creature_id not in used_females:
+                    pairs.append((male, female))
+                    used_males.add(male.creature_id)
+                    used_females.add(female.creature_id)
+            
+            # Second pass: fill remaining slots with best available (allows reuse)
+            if len(pairs) < num_pairs:
+                remaining_needed = num_pairs - len(pairs)
+                for score, male, female in all_possible_pairings:
+                    if len(pairs) >= num_pairs:
+                        break
+                    # Allow this pairing even if creatures are reused
+                    if (male, female) not in pairs:
+                        pairs.append((male, female))
+            
+            return pairs
+        
+        # Legacy behavior: random selection with constraints
         pairs = []
         attempts = 0
         max_attempts = num_pairs * 100
@@ -629,6 +810,115 @@ class KennelClubBreeder(Breeder):
         # Return random choice from best candidates
         return rng.choice(best_candidates) if best_candidates else None
 
+    def _score_creature_genotypes(self, creature: 'Creature') -> tuple:
+        """
+        Score a creature based on genotype tiers.
+        
+        Returns tuple of (optimal_count, acceptable_count, undesirable_count, not_configured_count)
+        Lower tier numbers are better (0=optimal, 1=acceptable, 2=undesirable, 3=not configured).
+        """
+        counts = [0, 0, 0, 0]  # [optimal, acceptable, undesirable, not_configured]
+        
+        for trait_id in range(len(creature.genome)):
+            if creature.genome[trait_id] is None:
+                continue
+            
+            tier = self._get_genotype_tier(creature, trait_id)
+            counts[tier] += 1
+        
+        return tuple(counts)
+    
+    def evaluate_offspring_vs_parents(
+        self,
+        offspring: List['Creature'],
+        parents: List['Creature'],
+        rng: np.random.Generator
+    ) -> dict:
+        """
+        Evaluate offspring vs parents to determine which offspring to keep and which parents to trade.
+        
+        Kennels get "first dibs" on their offspring - they compare each offspring's genotypes to both
+        parents and keep offspring that are superior (more optimal/acceptable genotypes, fewer undesirable).
+        Inferior parents are marked for trading to make room.
+        
+        Args:
+            offspring: List of offspring creatures produced by this breeder
+            parents: List of parent creatures currently owned by this breeder
+            rng: Random number generator for tie-breaking
+        
+        Returns:
+            dict with:
+                - 'keep_offspring': List of offspring to retain
+                - 'trade_parents': List of parents to trade away
+                - 'release_offspring': List of offspring to release for trading
+        """
+        if not offspring or not parents:
+            return {
+                'keep_offspring': [],
+                'trade_parents': [],
+                'release_offspring': offspring.copy() if offspring else []
+            }
+        
+        # Score all offspring and parents
+        offspring_scores = [(o, self._score_creature_genotypes(o)) for o in offspring]
+        parent_scores = [(p, self._score_creature_genotypes(p)) for p in parents]
+        
+        # Sort offspring by quality (more optimal, then fewer undesirable, then fewer not_configured)
+        # Better score = more optimal (index 0), fewer undesirable (index 2)
+        offspring_scores.sort(key=lambda x: (-x[1][0], x[1][2], x[1][3]), reverse=False)
+        
+        # Sort parents by quality (worst first - these will be traded)
+        parent_scores.sort(key=lambda x: (-x[1][0], x[1][2], x[1][3]), reverse=True)
+        
+        keep_offspring = []
+        trade_parents = []
+        release_offspring = []
+        
+        # Compare each offspring to the worst parent
+        # If offspring is better, keep offspring and mark parent for trading
+        offspring_idx = 0
+        parent_idx = 0
+        
+        while offspring_idx < len(offspring_scores) and parent_idx < len(parent_scores):
+            offspring_creature, offspring_score = offspring_scores[offspring_idx]
+            parent_creature, parent_score = parent_scores[parent_idx]
+            
+            # Compare scores: offspring is better if it has:
+            # 1. More optimal genotypes, OR
+            # 2. Same optimal but fewer undesirable, OR
+            # 3. Same optimal and undesirable but fewer not_configured
+            offspring_better = False
+            if offspring_score[0] > parent_score[0]:  # More optimal
+                offspring_better = True
+            elif offspring_score[0] == parent_score[0]:  # Same optimal
+                if offspring_score[2] < parent_score[2]:  # Fewer undesirable
+                    offspring_better = True
+                elif offspring_score[2] == parent_score[2]:  # Same undesirable
+                    if offspring_score[3] < parent_score[3]:  # Fewer not_configured
+                        offspring_better = True
+            
+            if offspring_better:
+                # Keep this offspring, trade this parent
+                keep_offspring.append(offspring_creature)
+                trade_parents.append(parent_creature)
+                offspring_idx += 1
+                parent_idx += 1
+            else:
+                # Offspring not better than worst parent - release for trading
+                release_offspring.append(offspring_creature)
+                offspring_idx += 1
+        
+        # Any remaining offspring that weren't compared - release for trading
+        while offspring_idx < len(offspring_scores):
+            release_offspring.append(offspring_scores[offspring_idx][0])
+            offspring_idx += 1
+        
+        return {
+            'keep_offspring': keep_offspring,
+            'trade_parents': trade_parents,
+            'release_offspring': release_offspring
+        }
+
 
 class MillBreeder(Breeder):
     """Selects pairs based on target phenotypes. Mill breeders always avoid undesirable phenotypes."""
@@ -639,7 +929,8 @@ class MillBreeder(Breeder):
         undesirable_phenotypes: Optional[List[dict]] = None,
         undesirable_genotypes: Optional[List[dict]] = None,
         avoid_undesirable_phenotypes: bool = False,
-        avoid_undesirable_genotypes: bool = False
+        avoid_undesirable_genotypes: bool = False,
+        max_creatures: int = 7
     ):
         """
         Initialize mill breeder.
@@ -650,8 +941,9 @@ class MillBreeder(Breeder):
             undesirable_genotypes: List of {trait_id, genotype} dicts to avoid
             avoid_undesirable_phenotypes: Ignored - mill breeders always avoid undesirable phenotypes
             avoid_undesirable_genotypes: If True, filter out creatures with undesirable genotypes
+            max_creatures: Maximum number of creatures this breeder can own
         """
-        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes)
+        super().__init__(undesirable_phenotypes, undesirable_genotypes, avoid_undesirable_phenotypes, avoid_undesirable_genotypes, max_creatures)
         self.target_phenotypes = target_phenotypes
     
     def _matches_target_phenotypes(self, creature: 'Creature', traits: List) -> bool:
@@ -674,6 +966,32 @@ class MillBreeder(Breeder):
                 return False
         
         return True
+    
+    def _count_undesirable_phenotypes(self, creature: 'Creature', traits: List) -> int:
+        """Count number of undesirable phenotypes in a creature."""
+        if not self.undesirable_phenotypes:
+            return 0
+        
+        from .trait import Trait
+        count = 0
+        
+        for undesirable in self.undesirable_phenotypes:
+            trait_id = undesirable['trait_id']
+            undesirable_phenotype = undesirable['phenotype']
+            
+            if trait_id >= len(creature.genome) or creature.genome[trait_id] is None:
+                continue
+            
+            # Find trait to get phenotype mapping
+            trait = next((t for t in traits if t.trait_id == trait_id), None)
+            if trait is None:
+                continue
+            
+            actual_phenotype = trait.get_phenotype(creature.genome[trait_id], creature.sex)
+            if actual_phenotype == undesirable_phenotype:
+                count += 1
+        
+        return count
     
     def select_pairs(
         self,
@@ -716,11 +1034,25 @@ class MillBreeder(Breeder):
             filtered_males = [m for m in filtered_males if not self._has_undesirable_genotype(m)]
             filtered_females = [f for f in filtered_females if not self._has_undesirable_genotype(f)]
         
-        # If filtering removed all candidates, fall back to original lists
+        # NEW: If filtering removed all candidates, use fallback strategy
+        # Select creatures with MINIMUM number of undesirable phenotypes
         if not filtered_males:
-            filtered_males = eligible_males
+            # Count undesirable phenotypes for each male
+            male_scores = [(m, self._count_undesirable_phenotypes(m, traits)) for m in eligible_males]
+            if male_scores:
+                min_score = min(score for _, score in male_scores)
+                filtered_males = [m for m, score in male_scores if score == min_score]
+            else:
+                filtered_males = eligible_males
+        
         if not filtered_females:
-            filtered_females = eligible_females
+            # Count undesirable phenotypes for each female
+            female_scores = [(f, self._count_undesirable_phenotypes(f, traits)) for f in eligible_females]
+            if female_scores:
+                min_score = min(score for _, score in female_scores)
+                filtered_females = [f for f, score in female_scores if score == min_score]
+            else:
+                filtered_females = eligible_females
         
         # Filter creatures that match target phenotypes
         matching_males = [m for m in filtered_males if self._matches_target_phenotypes(m, traits)]

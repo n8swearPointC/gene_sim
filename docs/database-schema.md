@@ -14,14 +14,18 @@ This document provides a comprehensive overview of the SQLite database schema fo
 
 ## 2. Table Summary
 
+**IMPORTANT NOTE**: The actual database table is named `generation_stats` (NOT `population_summary`). This table tracks demographic statistics per generation including population size, eligible breeders, births, and deaths.
+
 | Table | Purpose | Primary Key | Detailed Schema |
 |-------|---------|-------------|-----------------|
 | `simulations` | Simulation metadata and lifecycle tracking | `simulation_id` | [Simulation Model](models/simulation.md#511-simulations-table) |
+| `breeders` | Breeder instances with type and capacity | `breeder_id` | [Breeder Model](models/breeder.md#8-database-schema) |
 | `traits` | Trait definitions (genetic characteristics) | `trait_id` | [Trait Model](models/trait.md#7-database-schema-sqlite) |
 | `genotypes` | Genotype definitions with phenotype mappings | `genotype_id` | [Trait Model](models/trait.md#7-database-schema-sqlite) |
 | `creatures` | Individual creature records and lineage | `creature_id` | [Creature Model](models/creature.md#71-creatures-table) |
 | `creature_genotypes` | Genotypes for each trait per creature | `(creature_id, trait_id)` | [Creature Model](models/creature.md#72-genotypes-table-creature-genotypes) |
-| `generation_stats` | Demographic statistics per generation | `(simulation_id, generation)` | [Generation Model](models/generation.md#81-generation-stats-table) |
+| `creature_ownership_history` | Track creature ownership transfers | `ownership_id` | [Breeder Model](models/breeder.md#8-database-schema) |
+| `generation_stats` | Demographic statistics per generation (population_size, eligible_males, eligible_females, births, deaths) | `(simulation_id, generation)` | [Generation Model](models/generation.md#81-generation-stats-table) |
 | `generation_genotype_frequencies` | Genotype frequencies per generation | `(simulation_id, generation, trait_id, genotype)` | [Generation Model](models/generation.md#82-generation-genotype-frequencies-table) |
 | `generation_trait_stats` | Allele frequencies, heterozygosity, and genotype diversity per generation | `(simulation_id, generation, trait_id)` | [Generation Model](models/generation.md#83-generation-trait-stats-table) |
 
@@ -50,7 +54,24 @@ CREATE INDEX idx_simulations_seed ON simulations(seed);
 CREATE INDEX idx_simulations_created ON simulations(created_at);
 ```
 
-### 3.2 Traits Table
+### 3.2 Breeders Table
+
+```sql
+CREATE TABLE breeders (
+    breeder_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    simulation_id INTEGER NOT NULL,
+    breeder_index INTEGER NOT NULL CHECK(breeder_index >= 0),
+    breeder_type TEXT NOT NULL CHECK(breeder_type IN ('random', 'inbreeding_avoidance', 'kennel_club', 'mill')),
+    max_creatures INTEGER NOT NULL DEFAULT 7 CHECK(max_creatures > 0),
+    FOREIGN KEY (simulation_id) REFERENCES simulations(simulation_id) ON DELETE CASCADE,
+    UNIQUE(simulation_id, breeder_index)
+);
+
+CREATE INDEX idx_breeders_simulation ON breeders(simulation_id);
+CREATE INDEX idx_breeders_type ON breeders(breeder_type);
+```
+
+### 3.3 Traits Table
 
 ```sql
 CREATE TABLE traits (
@@ -68,7 +89,7 @@ CREATE TABLE traits (
 CREATE INDEX idx_traits_type ON traits(trait_type);
 ```
 
-### 3.3 Genotypes Table
+### 3.4 Genotypes Table
 
 ```sql
 CREATE TABLE genotypes (
@@ -86,7 +107,7 @@ CREATE INDEX idx_genotypes_trait ON genotypes(trait_id);
 CREATE INDEX idx_genotypes_phenotype ON genotypes(trait_id, phenotype);
 ```
 
-### 3.4 Creatures Table
+### 3.5 Creatures Table
 
 ```sql
 CREATE TABLE creatures (
@@ -114,7 +135,7 @@ CREATE INDEX idx_creatures_breeding_eligibility ON creatures(simulation_id, sex,
 CREATE INDEX idx_creatures_inbreeding ON creatures(simulation_id, inbreeding_coefficient);
 ```
 
-### 3.5 Creature Genotypes Table
+### 3.6 Creature Genotypes Table
 
 ```sql
 CREATE TABLE creature_genotypes (
@@ -131,7 +152,24 @@ CREATE INDEX idx_creature_genotypes_genotype ON creature_genotypes(genotype);
 CREATE INDEX idx_creature_genotypes_creature ON creature_genotypes(creature_id);
 ```
 
-### 3.6 Generation Stats Table
+### 3.7 Creature Ownership History Table
+
+```sql
+CREATE TABLE creature_ownership_history (
+    ownership_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    creature_id INTEGER NOT NULL,
+    breeder_id INTEGER NOT NULL,
+    transfer_generation INTEGER NOT NULL CHECK(transfer_generation >= 0),
+    FOREIGN KEY (creature_id) REFERENCES creatures(creature_id) ON DELETE CASCADE,
+    FOREIGN KEY (breeder_id) REFERENCES breeders(breeder_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_creature_ownership_creature ON creature_ownership_history(creature_id);
+CREATE INDEX idx_creature_ownership_breeder ON creature_ownership_history(breeder_id);
+CREATE INDEX idx_creature_ownership_generation ON creature_ownership_history(transfer_generation);
+```
+
+### 3.8 Generation Stats Table
 
 ```sql
 CREATE TABLE generation_stats (
@@ -149,7 +187,7 @@ CREATE TABLE generation_stats (
 CREATE INDEX idx_generation_stats_generation ON generation_stats(simulation_id, generation);
 ```
 
-### 3.7 Generation Genotype Frequencies Table
+### 3.9 Generation Genotype Frequencies Table
 
 ```sql
 CREATE TABLE generation_genotype_frequencies (
@@ -168,7 +206,7 @@ CREATE INDEX idx_genotype_freq_generation ON generation_genotype_frequencies(sim
 CREATE INDEX idx_genotype_freq_trait ON generation_genotype_frequencies(trait_id);
 ```
 
-### 3.8 Generation Trait Stats Table
+### 3.10 Generation Trait Stats Table
 
 ```sql
 CREATE TABLE generation_trait_stats (
@@ -212,7 +250,10 @@ generation_stats (1) ──< (many) generation_trait_stats
 
 **Relationship Details:**
 - **simulations → creatures**: One simulation has many creatures (ON DELETE CASCADE)
+- **simulations → breeders**: One simulation has many breeders (ON DELETE CASCADE)
 - **simulations → generation_stats**: One simulation has many generation statistics (ON DELETE CASCADE)
+- **breeders → creatures**: One breeder can own many creatures (via breeder_id) (ON DELETE SET NULL)
+- **breeders → creature_ownership_history**: One breeder has ownership transfer history (ON DELETE CASCADE)
 - **traits → genotypes**: One trait has many possible genotypes (ON DELETE CASCADE)
 - **traits → creature_genotypes**: One trait appears in many creature genotypes (ON DELETE CASCADE)
 - **creatures → creature_genotypes**: One creature has genotypes for many traits (ON DELETE CASCADE)
@@ -229,32 +270,41 @@ generation_stats (1) ──< (many) generation_trait_stats
 - `idx_simulations_seed` - Query simulations by seed (for reproducibility checks)
 - `idx_simulations_created` - Query simulations by creation date
 
-### 5.2 Traits Indexes
+### 5.2 Breeders Indexes
+- `idx_breeders_simulation` - Query breeders by simulation
+- `idx_breeders_type` - Query breeders by type
+
+### 5.3 Traits Indexes
 - `idx_traits_type` - Query traits by type
 
-### 5.3 Genotypes Indexes
+### 5.4 Genotypes Indexes
 - `idx_genotypes_trait` - Query genotypes by trait
 - `idx_genotypes_phenotype` - Query genotypes by phenotype within trait
 
-### 5.4 Creatures Indexes
+### 5.5 Creatures Indexes
 - `idx_creatures_birth_generation` - Query creatures by simulation and birth generation (time-series queries)
 - `idx_creatures_parents` - Query creatures by parent relationships (lineage queries)
 - `idx_creatures_breeding_eligibility` - Query eligible breeders (composite index for filtering)
 - `idx_creatures_inbreeding` - Query creatures by inbreeding coefficient (for analysis and breeding selection)
 
-### 5.5 Creature Genotypes Indexes
+### 5.6 Creature Genotypes Indexes
 - `idx_creature_genotypes_trait` - Query creature genotypes by trait
 - `idx_creature_genotypes_genotype` - Query creatures by specific genotype
 - `idx_creature_genotypes_creature` - Query all genotypes for a creature
 
-### 5.6 Generation Stats Indexes
+### 5.7 Creature Ownership History Indexes
+- `idx_creature_ownership_creature` - Query ownership history by creature
+- `idx_creature_ownership_breeder` - Query ownership history by breeder
+- `idx_creature_ownership_generation` - Query ownership transfers by generation
+
+### 5.8 Generation Stats Indexes
 - `idx_generation_stats_generation` - Query generation stats by simulation and generation
 
-### 5.7 Generation Genotype Frequencies Indexes
+### 5.9 Generation Genotype Frequencies Indexes
 - `idx_genotype_freq_generation` - Query genotype frequencies by generation
 - `idx_genotype_freq_trait` - Query genotype frequencies by trait (across generations)
 
-### 5.8 Generation Trait Stats Indexes
+### 5.10 Generation Trait Stats Indexes
 - `idx_trait_stats_generation` - Query trait stats by generation
 - `idx_trait_stats_trait` - Query trait stats by trait (across generations)
 
