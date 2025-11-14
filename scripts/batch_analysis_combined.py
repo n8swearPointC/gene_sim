@@ -1,12 +1,6 @@
 """
 Combined batch analysis script - creates comparison charts for kennels vs mills.
 
-DEPRECATED: Use batch_analysis_unified.py instead.
-    python batch_analysis_unified.py --combined <kennel_dir> <mill_dir> <output_dir>
-
-This script is maintained for backward compatibility but the unified interface
-provides better usability and consistent argument handling.
-
 Usage:
     python batch_analysis_combined.py <kennel_dir> <mill_dir> <output_dir> [aggregate_method]
     
@@ -23,21 +17,6 @@ from batch_analysis import create_combined_charts
 
 def main():
     """Main function for combined analysis."""
-    
-    # Print deprecation warning
-    print("\n" + "!"*80)
-    print("DEPRECATION WARNING")
-    print("!"*80)
-    print("\nThis script (batch_analysis_combined.py) is deprecated.")
-    print("Please use the unified interface instead:")
-    print()
-    print("  python batch_analysis_unified.py --combined <kennel_dir> <mill_dir> <output_dir> [--aggregate method]")
-    print()
-    print("Example:")
-    print("  python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined")
-    print()
-    print("Continuing with legacy behavior...")
-    print("!"*80 + "\n")
     
     if len(sys.argv) < 4:
         print("Usage: python batch_analysis_combined.py <kennel_dir> <mill_dir> <output_dir> [aggregate_method]")
