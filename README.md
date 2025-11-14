@@ -35,16 +35,30 @@ print(f"Database: {results.database_path}")
 
 ### Analyzing Results
 
-The project includes a unified batch analysis tool for analyzing simulation results:
+The project includes a unified batch analysis tool with a streamlined interface:
 
 ```bash
-# Individual batch analysis (e.g., kennels-only)
+# RECOMMENDED: Full analysis (runs all 4 analyses automatically)
+cd scripts
+python batch_analysis_unified.py ../run5/run5a_kennels ../run5/run5b_mills
+
+# This single command performs:
+#   1. Individual analysis on kennels
+#   2. Individual analysis on mills
+#   3. Combined comparison (total population)
+#   4. Combined comparison (show-quality animals)
+```
+
+**Advanced usage** for specific analyses:
+
+```bash
+# Individual batch only
 python batch_analysis_unified.py --individual run4/run4a_kennels
 
-# Compare kennels vs mills (total population)
+# Combined total population only
 python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
 
-# Compare kennels vs mills (show-quality animals only)
+# Combined show-quality only
 python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
 ```
 

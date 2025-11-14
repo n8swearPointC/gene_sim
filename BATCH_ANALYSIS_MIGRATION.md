@@ -2,16 +2,35 @@
 
 ## Summary
 
-The batch analysis tools have been consolidated into a single unified script (`batch_analysis_unified.py`) that provides a consistent, user-friendly interface for all analysis modes.
+The batch analysis tools have been consolidated into a single unified script (`batch_analysis_unified.py`) with a **streamlined interface** that can run all analyses with one command.
 
 ## What Changed
 
+### New Streamlined Interface
+
+**Before (4 separate commands):**
+```bash
+python batch_analysis.py run5/run5a_kennels
+python batch_analysis.py run5/run5b_mills
+python batch_analysis_combined.py run5/run5a_kennels run5/run5b_mills run5/combined
+python batch_analysis_combined_desired.py run5/run5a_kennels run5/run5b_mills run5/combined_desired
+```
+
+**After (1 command):**
+```bash
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills
+```
+
+This single command automatically runs all four analyses and organizes outputs.
+
 ### New Unified Script
 - **`batch_analysis_unified.py`** - Single entry point for all batch analysis operations
+  - **Full analysis mode** (default): Provide two directories, get all analyses
+  - **Individual modes**: Use flags for specific analyses
   - Uses proper argument parsing with `argparse`
-  - Provides clear help text and examples
-  - Supports short-form flags (`-i`, `-c`, `-cd`)
-  - Consistent parameter ordering across all modes
+  - Interactive confirmation before starting full analysis
+  - Clear progress indicators for each step
+  - Automatic output directory determination
 
 ### Legacy Scripts (Deprecated)
 The following scripts are deprecated but maintained for backward compatibility:
@@ -19,9 +38,24 @@ The following scripts are deprecated but maintained for backward compatibility:
 - `batch_analysis_combined.py` → Use `batch_analysis_unified.py --combined`
 - `batch_analysis_combined_desired.py` → Use `batch_analysis_unified.py --combined-desired`
 
-Each legacy script now displays a deprecation warning when run, directing users to the unified interface.
+Each legacy script now displays a deprecation warning when run.
 
 ## Migration Guide
+
+### Full Analysis (Recommended)
+
+**Old (4 commands):**
+```bash
+python batch_analysis.py run4/run4a_kennels
+python batch_analysis.py run4/run4b_mills
+python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined
+python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills run4/combined_desired
+```
+
+**New (1 command):**
+```bash
+python batch_analysis_unified.py run4/run4a_kennels run4/run4b_mills
+```
 
 ### Individual Batch Analysis
 
@@ -67,11 +101,35 @@ python batch_analysis_unified.py -cd run4/run4a_kennels run4/run4b_mills run4/co
 
 ## Benefits
 
-1. **Consistent Interface**: All modes use the same argument style
-2. **Better Help**: Built-in `--help` flag with examples
-3. **Short Forms**: Use `-i`, `-c`, `-cd` for brevity
-4. **Clear Parameters**: Named flags make intent explicit
-5. **Future-Proof**: Easier to extend with new features
+1. **Dramatically Simpler**: One command instead of four for full analysis
+2. **Automatic Organization**: Output directories determined automatically
+3. **Interactive**: Confirmation prompt with summary before running
+4. **Progress Tracking**: Clear step indicators (1/4, 2/4, etc.)
+5. **Consistent Interface**: Same argument style across all modes
+6. **Better Help**: Built-in `--help` flag with examples
+7. **Short Forms**: Use `-i`, `-c`, `-cd`, `-a` for brevity
+8. **Future-Proof**: Easier to extend with new features
+
+## Key Improvement: Full Analysis Mode
+
+The biggest improvement is the new **full analysis mode**:
+
+```bash
+# Just provide two directories
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills
+```
+
+This automatically:
+- Runs individual analysis on both directories
+- Creates combined comparison charts (total population)
+- Creates combined comparison charts (desired population)
+- Organizes all outputs in appropriate directories
+- Provides progress updates for each step
+- Shows a comprehensive summary at the end
+
+**Before:** 4 commands, manual output directory management, ~150 characters typed  
+**After:** 1 command, automatic output management, ~70 characters typed  
+**Time saved:** ~75% reduction in commands and typing
 
 ## Implementation Details
 
