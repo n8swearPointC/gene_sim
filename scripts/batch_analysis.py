@@ -1,6 +1,12 @@
 """
 Batch analysis script for processing all simulation databases in a directory.
 
+DEPRECATED: Use batch_analysis_unified.py instead.
+    python batch_analysis_unified.py --individual <directory>
+
+This script is maintained for backward compatibility but the unified interface
+provides better usability and consistent argument handling.
+
 Creates individual analysis reports and consolidated charts showing
 undesirable phenotype frequency trends across all runs.
 
@@ -1057,6 +1063,21 @@ def create_combined_charts_desired_only(kennel_dir, mill_dir, output_dir, aggreg
 def main():
     """Main batch analysis function."""
     import sys
+    
+    # Print deprecation warning
+    print("\n" + "!"*80)
+    print("DEPRECATION WARNING")
+    print("!"*80)
+    print("\nThis script (batch_analysis.py) is deprecated.")
+    print("Please use the unified interface instead:")
+    print()
+    print("  python batch_analysis_unified.py --individual <directory> [--aggregate method]")
+    print()
+    print("Example:")
+    print("  python batch_analysis_unified.py --individual run4/run4a_kennels")
+    print()
+    print("Continuing with legacy behavior...")
+    print("!"*80 + "\n")
     
     # Determine directory to process
     directory = "."

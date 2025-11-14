@@ -2,17 +2,41 @@
 
 ## Overview
 
-This project includes three complementary batch analysis tools for analyzing simulation runs:
+This project provides a **unified batch analysis tool** (`batch_analysis_unified.py`) that supports three analysis modes:
 
-1. **`batch_analysis.py`** - Individual analysis per breeding strategy
-2. **`batch_analysis_combined.py`** - Side-by-side comparison of kennels vs mills (total population)
-3. **`batch_analysis_combined_desired.py`** - Side-by-side comparison (desired/show-quality population only)
+1. **Individual analysis** - Single batch analysis (e.g., kennels-only or mills-only)
+2. **Combined comparison (total population)** - Side-by-side kennels vs mills using all creatures
+3. **Combined comparison (desired population)** - Side-by-side kennels vs mills using only show-quality creatures
 
-All three tools generate charts showing undesirable trait frequencies across generations with ensemble aggregates.
+All modes generate charts showing undesirable trait frequencies across generations with ensemble aggregates.
+
+### Quick Start
+
+```bash
+# Individual analysis (replaces batch_analysis.py)
+python batch_analysis_unified.py --individual run4/run4a_kennels
+
+# Combined total population (replaces batch_analysis_combined.py)
+python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
+
+# Combined desired population (replaces batch_analysis_combined_desired.py)
+python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
+```
 
 ---
 
-## Tool 1: Individual Batch Analysis (`batch_analysis.py`)
+## Legacy Scripts (Deprecated)
+
+The following scripts are deprecated but still functional:
+- `batch_analysis.py` - Use `batch_analysis_unified.py --individual` instead
+- `batch_analysis_combined.py` - Use `batch_analysis_unified.py --combined` instead
+- `batch_analysis_combined_desired.py` - Use `batch_analysis_unified.py --combined-desired` instead
+
+The unified script provides identical functionality with improved usability.
+
+---
+
+## Mode 1: Individual Batch Analysis
 
 ### Purpose
 Analyze a single batch of simulation runs (e.g., kennel-only or mill-only), creating individual charts for each undesirable trait.
@@ -21,23 +45,26 @@ Analyze a single batch of simulation runs (e.g., kennel-only or mill-only), crea
 
 ```bash
 # Basic (uses mean aggregate by default)
-python batch_analysis.py <directory>
+python batch_analysis_unified.py --individual <directory>
+
+# Short form
+python batch_analysis_unified.py -i <directory>
 
 # With specific aggregate method
-python batch_analysis.py <directory> <method>
+python batch_analysis_unified.py --individual <directory> --aggregate <method>
 ```
 
 ### Examples
 
 ```bash
 # Kennels with mean (default)
-python batch_analysis.py run4/run4a_kennels
+python batch_analysis_unified.py --individual run4/run4a_kennels
 
 # Mills with median
-python batch_analysis.py run4/run4b_mills median
+python batch_analysis_unified.py -i run4/run4b_mills --aggregate median
 
 # With confidence intervals
-python batch_analysis.py run4/run4a_kennels mean_ci
+python batch_analysis_unified.py -i run4/run4a_kennels -a mean_ci
 ```
 
 ### Output
@@ -62,7 +89,7 @@ Each chart displays:
 
 ---
 
-## Tool 2: Combined Batch Analysis (`batch_analysis_combined.py`)
+## Mode 2: Combined Batch Analysis (Total Population)
 
 ### Purpose
 Create side-by-side comparison charts showing kennels vs mills on the same graph, measuring undesirable traits in the **total population**.
@@ -70,20 +97,23 @@ Create side-by-side comparison charts showing kennels vs mills on the same graph
 ### Usage
 
 ```bash
-python batch_analysis_combined.py <kennel_dir> <mill_dir> <output_dir> [aggregate_method]
+python batch_analysis_unified.py --combined <kennel_dir> <mill_dir> <output_dir> [--aggregate method]
+
+# Short form
+python batch_analysis_unified.py -c <kennel_dir> <mill_dir> <output_dir>
 ```
 
 ### Examples
 
 ```bash
 # Default (mean aggregate)
-python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined
+python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
 
 # With median
-python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined median
+python batch_analysis_unified.py -c run4/run4a_kennels run4/run4b_mills run4/combined -a median
 
 # With confidence intervals
-python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined mean_ci
+python batch_analysis_unified.py -c run4/run4a_kennels run4/run4b_mills run4/combined --aggregate mean_ci
 ```
 
 ### Output
@@ -112,7 +142,7 @@ This shows the percentage of **all creatures** (regardless of desired traits) th
 
 ---
 
-## Tool 3: Desired Population Analysis (`batch_analysis_combined_desired.py`)
+## Mode 3: Combined Analysis (Desired Population Only)
 
 ### Purpose
 Create side-by-side comparison charts showing kennels vs mills, but measuring undesirable traits **only among creatures with ALL desired phenotypes** (show-quality animals).
@@ -120,17 +150,20 @@ Create side-by-side comparison charts showing kennels vs mills, but measuring un
 ### Usage
 
 ```bash
-python batch_analysis_combined_desired.py <kennel_dir> <mill_dir> <output_dir> [aggregate_method]
+python batch_analysis_unified.py --combined-desired <kennel_dir> <mill_dir> <output_dir> [--aggregate method]
+
+# Short form
+python batch_analysis_unified.py -cd <kennel_dir> <mill_dir> <output_dir>
 ```
 
 ### Examples
 
 ```bash
 # Default (mean aggregate)
-python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills run4/combined_desired
+python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
 
 # With median
-python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills run4/combined_desired median
+python batch_analysis_unified.py -cd run4/run4a_kennels run4/run4b_mills run4/combined_desired -a median
 ```
 
 ### Output
@@ -154,6 +187,7 @@ Automatically detected from config's `target_phenotypes` section. For runs 3-5:
 - Long Tail (trait 2)
 
 A creature must have **ALL THREE** to be included in the "desired population."
+
 
 ---
 
@@ -181,16 +215,16 @@ All three tools support four aggregate methods:
 
 ```bash
 # Step 1: Individual kennel analysis
-python batch_analysis.py run4/run4a_kennels
+python batch_analysis_unified.py --individual run4/run4a_kennels
 
 # Step 2: Individual mill analysis
-python batch_analysis.py run4/run4b_mills
+python batch_analysis_unified.py --individual run4/run4b_mills
 
 # Step 3: Combined total population comparison
-python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined
+python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
 
 # Step 4: Combined desired population comparison
-python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills run4/combined_desired
+python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
 ```
 
 This produces:
@@ -201,25 +235,26 @@ This produces:
 
 ---
 
-## When to Use Each Tool
+## When to Use Each Mode
 
-### Use `batch_analysis.py` when:
+### Use `--individual` when:
 - You want to focus on one breeding strategy at a time
 - You need detailed text reports for each simulation
 - You're analyzing a single batch in isolation
 
-### Use `batch_analysis_combined.py` when:
+### Use `--combined` when:
 - You want direct visual comparison of breeding strategies
 - You care about overall population health
 - You're tracking trait spread across all creatures
 - You want to answer: "Which strategy produces healthier populations overall?"
 
-### Use `batch_analysis_combined_desired.py` when:
+### Use `--combined-desired` when:
 - You're breeding for specific show/competition traits
 - You want to know: "Of my best animals, how many have defects?"
 - You're evaluating breeding program quality control
 - You care about the **marketable/show-worthy** subset
 - You want to answer: "Which strategy produces better show-quality animals?"
+
 
 ---
 
@@ -230,21 +265,21 @@ This produces:
 - **Red line**: Aggregate showing overall trend
 - **Look for**: Direction of trend (increasing/decreasing), variability between runs
 
-### Combined Charts (both tools)
+### Combined Charts (both modes)
 - **Blue/Teal**: Kennels (light = individual runs, dark = aggregate)
 - **Orange/Yellow**: Mills (light = individual runs, dark = aggregate)
 - **Look for**: Separation between strategies, convergence/divergence over time
 
 ### Key Insights
 
-**Standard Combined vs Desired-Only:**
+**Combined (Total) vs Combined-Desired (Show-Quality):**
 
-- **Standard charts**: "How healthy is my entire breeding operation?"
-- **Desired-only charts**: "How healthy are my show-quality animals?"
+- **Combined charts**: "How healthy is my entire breeding operation?"
+- **Combined-desired charts**: "How healthy are my show-quality animals?"
 
 A breeding program might have:
-- Low overall defect rates (standard charts look good)
-- But high defects in show-quality animals (desired-only charts look bad)
+- Low overall defect rates (combined charts look good)
+- But high defects in show-quality animals (combined-desired charts look bad)
 
 This indicates defects clustering in the valuable subset - a critical breeding failure.
 
@@ -259,16 +294,16 @@ Run 4 configuration:
 
 ```bash
 # Analyze kennels
-python batch_analysis.py run4/run4a_kennels
+python batch_analysis_unified.py --individual run4/run4a_kennels
 
 # Analyze mills  
-python batch_analysis.py run4/run4b_mills
+python batch_analysis_unified.py --individual run4/run4b_mills
 
 # Compare total populations
-python batch_analysis_combined.py run4/run4a_kennels run4/run4b_mills run4/combined
+python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
 
 # Compare show-quality populations
-python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills run4/combined_desired
+python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
 ```
 
 ---
@@ -276,9 +311,16 @@ python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills ru
 ## Technical Notes
 
 ### File Locations
-- **Scripts**: Top-level directory (`batch_analysis.py`, etc.)
+- **Main script**: `batch_analysis_unified.py` (top-level directory)
+- **Legacy scripts**: `batch_analysis.py`, `batch_analysis_combined.py`, `batch_analysis_combined_desired.py` (deprecated)
 - **Individual results**: `<run_dir>/<batch_dir>/` (e.g., `run4/run4a_kennels/`)
 - **Combined results**: User-specified output directory (e.g., `run4/combined/`)
+
+### Implementation Details
+- The unified script imports functions from `batch_analysis.py`
+- All core analytics logic remains in `batch_analysis.py`
+- The unified script provides a cleaner command-line interface
+- Uses `argparse` for proper argument parsing and help text
 
 ### Chart Format
 - PNG images
@@ -290,3 +332,20 @@ python batch_analysis_combined_desired.py run4/run4a_kennels run4/run4b_mills ru
 - Processes all `.db` files in specified directory
 - Parallelizable across multiple runs
 - Efficient SQLite queries for large simulations
+
+---
+
+## Migration Guide
+
+If you have existing scripts or documentation using the old commands:
+
+| Old Command | New Command |
+|-------------|-------------|
+| `python batch_analysis.py DIR` | `python batch_analysis_unified.py --individual DIR` |
+| `python batch_analysis.py DIR METHOD` | `python batch_analysis_unified.py --individual DIR --aggregate METHOD` |
+| `python batch_analysis_combined.py K M O` | `python batch_analysis_unified.py --combined K M O` |
+| `python batch_analysis_combined.py K M O METHOD` | `python batch_analysis_unified.py --combined K M O --aggregate METHOD` |
+| `python batch_analysis_combined_desired.py K M O` | `python batch_analysis_unified.py --combined-desired K M O` |
+| `python batch_analysis_combined_desired.py K M O METHOD` | `python batch_analysis_unified.py --combined-desired K M O --aggregate METHOD` |
+
+Where: K=kennel_dir, M=mill_dir, O=output_dir, METHOD=aggregate method

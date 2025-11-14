@@ -1,6 +1,12 @@
 """
 Combined batch analysis script - DESIRED POPULATION ONLY version.
 
+DEPRECATED: Use batch_analysis_unified.py instead.
+    python batch_analysis_unified.py --combined-desired <kennel_dir> <mill_dir> <output_dir>
+
+This script is maintained for backward compatibility but the unified interface
+provides better usability and consistent argument handling.
+
 Creates comparison charts for kennels vs mills, but calculates undesirable trait
 frequencies ONLY among creatures that have ALL desired phenotypes.
 
