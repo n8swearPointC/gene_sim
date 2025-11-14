@@ -2,24 +2,33 @@
 
 ## Overview
 
-This project provides a **unified batch analysis tool** (`batch_analysis_unified.py`) that supports three analysis modes:
+This project provides a **unified batch analysis tool** (`batch_analysis_unified.py`) with a streamlined interface:
 
-1. **Individual analysis** - Single batch analysis (e.g., kennels-only or mills-only)
-2. **Combined comparison (total population)** - Side-by-side kennels vs mills using all creatures
-3. **Combined comparison (desired population)** - Side-by-side kennels vs mills using only show-quality creatures
+**Recommended Usage (Full Analysis):**
+```bash
+python batch_analysis_unified.py <dir1> <dir2>
+```
 
-All modes generate charts showing undesirable trait frequencies across generations with ensemble aggregates.
+This single command automatically runs all four analyses:
+1. Individual analysis on dir1
+2. Individual analysis on dir2  
+3. Combined comparison (total population)
+4. Combined comparison (desired/show-quality population)
+
+**Advanced Usage:** Individual modes available for specific needs (see below).
 
 ### Quick Start
 
 ```bash
-# Individual analysis (replaces batch_analysis.py)
+# RECOMMENDED: Full analysis (runs all 4 analyses automatically)
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills
+
+# With specific aggregate method
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills --aggregate median
+
+# Advanced: Run specific analysis only
 python batch_analysis_unified.py --individual run4/run4a_kennels
-
-# Combined total population (replaces batch_analysis_combined.py)
 python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
-
-# Combined desired population (replaces batch_analysis_combined_desired.py)
 python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
 ```
 
@@ -36,7 +45,84 @@ The unified script provides identical functionality with improved usability.
 
 ---
 
-## Mode 1: Individual Batch Analysis
+## Full Analysis Mode (Recommended)
+
+### Purpose
+Run a complete analysis suite on two directories with a single command. Automatically performs all four analyses and organizes outputs.
+
+### Usage
+
+```bash
+python batch_analysis_unified.py <dir1> <dir2> [--aggregate method]
+```
+
+### What It Does
+
+Automatically runs four analyses:
+1. **Individual analysis on dir1** - Charts and reports for first batch
+2. **Individual analysis on dir2** - Charts and reports for second batch
+3. **Combined total population** - Side-by-side comparison using all creatures
+4. **Combined desired population** - Side-by-side comparison using only show-quality animals
+
+Output directories are automatically determined:
+- Individual charts: Saved in each input directory
+- Combined charts: Saved in `<parent>/combined/`
+- Combined-desired charts: Saved in `<parent>/combined_desired/`
+
+### Examples
+
+```bash
+# Full analysis with default settings
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills
+
+# Full analysis with median aggregate
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills --aggregate median
+
+# Full analysis with confidence intervals
+python batch_analysis_unified.py run5/run5a_kennels run5/run5b_mills -a mean_ci
+```
+
+### Interactive Confirmation
+
+The tool displays a summary before starting:
+```
+================================================================================
+FULL BATCH ANALYSIS SUITE
+================================================================================
+
+Directory 1: run5/run5a_kennels
+Directory 2: run5/run5b_mills
+Aggregate method: mean
+
+This will run 4 analyses:
+  1. Individual analysis on directory 1
+  2. Individual analysis on directory 2
+  3. Combined analysis (total population)
+  4. Combined analysis (desired population only)
+
+Press Enter to continue or Ctrl+C to cancel...
+```
+
+### Output Summary
+
+After completion, you'll see:
+```
+All analyses completed successfully!
+
+Outputs:
+  - Individual dir1: run5/run5a_kennels/ (9 charts + text reports)
+  - Individual dir2: run5/run5b_mills/ (9 charts + text reports)
+  - Combined total: run5/combined/ (9 charts)
+  - Combined desired: run5/combined_desired/ (9 charts)
+
+Total: 36 charts generated
+```
+
+---
+
+## Advanced: Individual Modes
+
+For specific use cases, you can run individual analysis modes:
 
 ### Purpose
 Analyze a single batch of simulation runs (e.g., kennel-only or mill-only), creating individual charts for each undesirable trait.
@@ -209,29 +295,41 @@ All three tools support four aggregate methods:
 - **Use mean_ci**: To visualize variability/uncertainty across runs
 - **Use moving_avg**: To smooth noisy generation-to-generation fluctuations
 
----
-
 ## Typical Analysis Workflow
 
+### Recommended Workflow (Streamlined)
+
 ```bash
-# Step 1: Individual kennel analysis
-python batch_analysis_unified.py --individual run4/run4a_kennels
-
-# Step 2: Individual mill analysis
-python batch_analysis_unified.py --individual run4/run4b_mills
-
-# Step 3: Combined total population comparison
-python batch_analysis_unified.py --combined run4/run4a_kennels run4/run4b_mills run4/combined
-
-# Step 4: Combined desired population comparison
-python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired
+# Single command does everything
+cd scripts
+python batch_analysis_unified.py ../run5/run5a_kennels ../run5/run5b_mills
 ```
 
-This produces:
-- Individual charts for kennels only
-- Individual charts for mills only
-- Combined charts showing total population comparisons
-- Combined charts showing show-quality population comparisons
+This produces all outputs in one go:
+- Individual charts for kennels
+- Individual charts for mills
+- Combined charts (total population)
+- Combined charts (show-quality population)
+
+### Legacy Workflow (Manual Steps)
+
+If you need to run analyses separately:
+
+```bash
+cd scripts
+
+# Step 1: Individual kennel analysis
+python batch_analysis_unified.py --individual ../run5/run5a_kennels
+
+# Step 2: Individual mill analysis
+python batch_analysis_unified.py --individual ../run5/run5b_mills
+
+# Step 3: Combined total population
+python batch_analysis_unified.py --combined ../run5/run5a_kennels ../run5/run5b_mills ../run5/combined
+
+# Step 4: Combined desired population
+python batch_analysis_unified.py --combined-desired ../run5/run5a_kennels ../run5/run5b_mills ../run5/combined_desired
+```
 
 ---
 

@@ -12,7 +12,7 @@ sys.path.insert(0, str(parent_dir))
 from gene_sim.simulation import Simulation
 
 
-def run_single_simulation(config_path, run_name, seed):
+def run_single_simulation(config_path, run_name, seed, script_dir):
     """Run one simulation for testing."""
     
     # Load config
@@ -23,8 +23,8 @@ def run_single_simulation(config_path, run_name, seed):
     config['seed'] = seed
     config['mode'] = 'monitor'
     
-    # Create output directory
-    output_dir = Path("single_pass_results")
+    # Create output directory in script directory
+    output_dir = script_dir / "single_pass_results"
     output_dir.mkdir(exist_ok=True)
     
     # Create database path
@@ -51,7 +51,9 @@ def run_single_simulation(config_path, run_name, seed):
 
 def main():
     """Run single configuration with monitoring."""
-    config_path = Path("run6_config.yaml")
+    # Get the directory where this script is located
+    script_dir = Path(__file__).resolve().parent
+    config_path = script_dir / "run6_config.yaml"
     
     if not config_path.exists():
         print(f"Error: Configuration file not found: {config_path}")
@@ -61,7 +63,7 @@ def main():
     seed = 9000
     run_name = "run6_test"
     
-    db_path = run_single_simulation(config_path, run_name, seed)
+    db_path = run_single_simulation(config_path, run_name, seed, script_dir)
     
     print("\n" + "="*80)
     print("SINGLE-PASS TEST COMPLETE")

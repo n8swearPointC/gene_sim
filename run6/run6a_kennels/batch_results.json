@@ -1,0 +1,644 @@
+{
+  "timestamp": "2025-11-13T23:52:28.047940",
+  "config_path": "run6a_kennels\\batch_config.yaml",
+  "base_config": {
+    "breeders": {
+      "inbreeding_avoidance": 0,
+      "kennel_club": 19,
+      "mill": 1,
+      "random": 0
+    },
+    "creature_archetype": {
+      "gestation_period_days": 65,
+      "lifespan": {
+        "max": 5,
+        "min": 3.25
+      },
+      "litter_size": {
+        "max": 6,
+        "min": 3
+      },
+      "max_fertility_age_years": {
+        "female": 4.25,
+        "male": 4.5
+      },
+      "menstrual_cycle_days": 24,
+      "nearing_end_cycles": 12,
+      "nursing_period_days": 28,
+      "remove_ineligible_immediately": false,
+      "sexual_maturity_months": 6
+    },
+    "genotype_preferences": [
+      {
+        "acceptable": [
+          "Ee"
+        ],
+        "optimal": [
+          "EE"
+        ],
+        "trait_id": 0,
+        "undesirable": [
+          "ee"
+        ]
+      },
+      {
+        "acceptable": [
+          "Ss"
+        ],
+        "optimal": [
+          "SS"
+        ],
+        "trait_id": 1,
+        "undesirable": [
+          "ss"
+        ]
+      },
+      {
+        "acceptable": [
+          "Ll"
+        ],
+        "optimal": [
+          "LL"
+        ],
+        "trait_id": 2,
+        "undesirable": [
+          "ll"
+        ]
+      },
+      {
+        "acceptable": [
+          "Ww"
+        ],
+        "optimal": [
+          "WW"
+        ],
+        "trait_id": 3,
+        "undesirable": [
+          "ww"
+        ]
+      },
+      {
+        "acceptable": [
+          "Vv"
+        ],
+        "optimal": [
+          "VV"
+        ],
+        "trait_id": 4,
+        "undesirable": [
+          "vv"
+        ]
+      },
+      {
+        "acceptable": [
+          "Ff"
+        ],
+        "optimal": [
+          "FF"
+        ],
+        "trait_id": 5,
+        "undesirable": [
+          "ff"
+        ]
+      },
+      {
+        "acceptable": [
+          "Aa"
+        ],
+        "optimal": [
+          "aa"
+        ],
+        "trait_id": 6,
+        "undesirable": [
+          "AA"
+        ]
+      },
+      {
+        "acceptable": [
+          "Hh"
+        ],
+        "optimal": [
+          "hh"
+        ],
+        "trait_id": 7,
+        "undesirable": [
+          "HH"
+        ]
+      },
+      {
+        "acceptable": [
+          "Kk"
+        ],
+        "optimal": [
+          "kk"
+        ],
+        "trait_id": 8,
+        "undesirable": [
+          "KK"
+        ]
+      },
+      {
+        "acceptable": [
+          "Dd"
+        ],
+        "optimal": [
+          "dd"
+        ],
+        "trait_id": 9,
+        "undesirable": [
+          "DD"
+        ]
+      },
+      {
+        "acceptable": [
+          "Zz"
+        ],
+        "optimal": [
+          "zz"
+        ],
+        "trait_id": 10,
+        "undesirable": [
+          "ZZ"
+        ]
+      },
+      {
+        "acceptable": [
+          "Bb"
+        ],
+        "optimal": [
+          "bb"
+        ],
+        "trait_id": 11,
+        "undesirable": [
+          "BB"
+        ]
+      }
+    ],
+    "initial_population_size": 200,
+    "initial_sex_ratio": {
+      "female": 0.5,
+      "male": 0.5
+    },
+    "mode": "monitor",
+    "seed": 9000,
+    "target_phenotypes": [
+      {
+        "phenotype": "Emerald Eyes",
+        "trait_id": 0
+      },
+      {
+        "phenotype": "Silky Coat",
+        "trait_id": 1
+      },
+      {
+        "phenotype": "Long Tail",
+        "trait_id": 2
+      }
+    ],
+    "traits": [
+      {
+        "genotypes": [
+          {
+            "genotype": "EE",
+            "initial_freq": 0.0,
+            "phenotype": "Emerald Eyes"
+          },
+          {
+            "genotype": "Ee",
+            "initial_freq": 0.1,
+            "phenotype": "Emerald Eyes"
+          },
+          {
+            "genotype": "ee",
+            "initial_freq": 0.9,
+            "phenotype": "Brown Eyes"
+          }
+        ],
+        "name": "Eye Color",
+        "trait_id": 0,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "SS",
+            "initial_freq": 0.04,
+            "phenotype": "Silky Coat"
+          },
+          {
+            "genotype": "Ss",
+            "initial_freq": 0.32,
+            "phenotype": "Normal Coat"
+          },
+          {
+            "genotype": "ss",
+            "initial_freq": 0.64,
+            "phenotype": "Normal Coat"
+          }
+        ],
+        "name": "Coat Texture",
+        "trait_id": 1,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "LL",
+            "initial_freq": 0.01,
+            "phenotype": "Long Tail"
+          },
+          {
+            "genotype": "Ll",
+            "initial_freq": 0.18,
+            "phenotype": "Medium Tail"
+          },
+          {
+            "genotype": "ll",
+            "initial_freq": 0.81,
+            "phenotype": "Medium Tail"
+          }
+        ],
+        "name": "Tail Length",
+        "trait_id": 2,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "WW",
+            "initial_freq": 0.6,
+            "phenotype": "Strong Bones"
+          },
+          {
+            "genotype": "Ww",
+            "initial_freq": 0.2,
+            "phenotype": "Normal Bones"
+          },
+          {
+            "genotype": "ww",
+            "initial_freq": 0.2,
+            "phenotype": "Weak Bones"
+          }
+        ],
+        "name": "Bone Strength",
+        "trait_id": 3,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "VV",
+            "initial_freq": 0.25,
+            "phenotype": "Good Vision"
+          },
+          {
+            "genotype": "Vv",
+            "initial_freq": 0.5,
+            "phenotype": "Normal Vision"
+          },
+          {
+            "genotype": "vv",
+            "initial_freq": 0.25,
+            "phenotype": "Poor Vision"
+          }
+        ],
+        "name": "Vision",
+        "trait_id": 4,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "FF",
+            "initial_freq": 0.2,
+            "phenotype": "Thick Fur"
+          },
+          {
+            "genotype": "Ff",
+            "initial_freq": 0.2,
+            "phenotype": "Normal Fur"
+          },
+          {
+            "genotype": "ff",
+            "initial_freq": 0.6,
+            "phenotype": "Thin Fur"
+          }
+        ],
+        "name": "Fur Density",
+        "trait_id": 5,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "AA",
+            "initial_freq": 0.6,
+            "phenotype": "Aggression"
+          },
+          {
+            "genotype": "Aa",
+            "initial_freq": 0.2,
+            "phenotype": "Aggression"
+          },
+          {
+            "genotype": "aa",
+            "initial_freq": 0.2,
+            "phenotype": "Calm"
+          }
+        ],
+        "name": "Temperament",
+        "trait_id": 6,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "HH",
+            "initial_freq": 0.6,
+            "phenotype": "Hip Issues"
+          },
+          {
+            "genotype": "Hh",
+            "initial_freq": 0.2,
+            "phenotype": "Hip Issues"
+          },
+          {
+            "genotype": "hh",
+            "initial_freq": 0.2,
+            "phenotype": "Healthy Hips"
+          }
+        ],
+        "name": "Hip Health",
+        "trait_id": 7,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "KK",
+            "initial_freq": 0.25,
+            "phenotype": "Skin Problems"
+          },
+          {
+            "genotype": "Kk",
+            "initial_freq": 0.5,
+            "phenotype": "Skin Problems"
+          },
+          {
+            "genotype": "kk",
+            "initial_freq": 0.25,
+            "phenotype": "Healthy Skin"
+          }
+        ],
+        "name": "Skin Health",
+        "trait_id": 8,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "DD",
+            "initial_freq": 0.25,
+            "phenotype": "Heart Defect"
+          },
+          {
+            "genotype": "Dd",
+            "initial_freq": 0.5,
+            "phenotype": "Heart Defect"
+          },
+          {
+            "genotype": "dd",
+            "initial_freq": 0.25,
+            "phenotype": "Healthy Heart"
+          }
+        ],
+        "name": "Heart Health",
+        "trait_id": 9,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "ZZ",
+            "initial_freq": 0.2,
+            "phenotype": "Seizures"
+          },
+          {
+            "genotype": "Zz",
+            "initial_freq": 0.2,
+            "phenotype": "Seizures"
+          },
+          {
+            "genotype": "zz",
+            "initial_freq": 0.6,
+            "phenotype": "Healthy"
+          }
+        ],
+        "name": "Neurological Health",
+        "trait_id": 10,
+        "trait_type": "SIMPLE_MENDELIAN"
+      },
+      {
+        "genotypes": [
+          {
+            "genotype": "BB",
+            "initial_freq": 0.2,
+            "phenotype": "Blindness"
+          },
+          {
+            "genotype": "Bb",
+            "initial_freq": 0.2,
+            "phenotype": "Blindness"
+          },
+          {
+            "genotype": "bb",
+            "initial_freq": 0.6,
+            "phenotype": "Healthy Eyes"
+          }
+        ],
+        "name": "Eye Health",
+        "trait_id": 11,
+        "trait_type": "SIMPLE_MENDELIAN"
+      }
+    ],
+    "undesirable_phenotypes": [
+      {
+        "phenotype": "Weak Bones",
+        "trait_id": 3
+      },
+      {
+        "phenotype": "Poor Vision",
+        "trait_id": 4
+      },
+      {
+        "phenotype": "Thin Fur",
+        "trait_id": 5
+      },
+      {
+        "phenotype": "Aggression",
+        "trait_id": 6
+      },
+      {
+        "phenotype": "Hip Issues",
+        "trait_id": 7
+      },
+      {
+        "phenotype": "Skin Problems",
+        "trait_id": 8
+      },
+      {
+        "phenotype": "Heart Defect",
+        "trait_id": 9
+      },
+      {
+        "phenotype": "Seizures",
+        "trait_id": 10
+      },
+      {
+        "phenotype": "Blindness",
+        "trait_id": 11
+      }
+    ],
+    "years": 20
+  },
+  "num_runs": 15,
+  "base_seed": 9000,
+  "total_time_seconds": 1084.6641125679016,
+  "results": [
+    {
+      "run_number": 1,
+      "seed": 9000,
+      "runtime_seconds": 73.13785509997979,
+      "final_generation": 303,
+      "final_population_size": 114,
+      "total_creatures_created": 5941,
+      "database_path": "run6a_kennels\\simulation_run_001_seed_9000.db"
+    },
+    {
+      "run_number": 2,
+      "seed": 9001,
+      "runtime_seconds": 67.62562920013443,
+      "final_generation": 303,
+      "final_population_size": 6,
+      "total_creatures_created": 4086,
+      "database_path": "run6a_kennels\\simulation_run_002_seed_9001.db"
+    },
+    {
+      "run_number": 3,
+      "seed": 9002,
+      "runtime_seconds": 68.9911005999893,
+      "final_generation": 303,
+      "final_population_size": 9,
+      "total_creatures_created": 3925,
+      "database_path": "run6a_kennels\\simulation_run_003_seed_9002.db"
+    },
+    {
+      "run_number": 4,
+      "seed": 9003,
+      "runtime_seconds": 71.88702709996141,
+      "final_generation": 303,
+      "final_population_size": 107,
+      "total_creatures_created": 6519,
+      "database_path": "run6a_kennels\\simulation_run_004_seed_9003.db"
+    },
+    {
+      "run_number": 5,
+      "seed": 9004,
+      "runtime_seconds": 71.16060460009612,
+      "final_generation": 303,
+      "final_population_size": 8,
+      "total_creatures_created": 4484,
+      "database_path": "run6a_kennels\\simulation_run_005_seed_9004.db"
+    },
+    {
+      "run_number": 6,
+      "seed": 9005,
+      "runtime_seconds": 73.78293170011602,
+      "final_generation": 303,
+      "final_population_size": 122,
+      "total_creatures_created": 7022,
+      "database_path": "run6a_kennels\\simulation_run_006_seed_9005.db"
+    },
+    {
+      "run_number": 7,
+      "seed": 9006,
+      "runtime_seconds": 66.388793699909,
+      "final_generation": 303,
+      "final_population_size": 12,
+      "total_creatures_created": 4270,
+      "database_path": "run6a_kennels\\simulation_run_007_seed_9006.db"
+    },
+    {
+      "run_number": 8,
+      "seed": 9007,
+      "runtime_seconds": 71.70703139994293,
+      "final_generation": 303,
+      "final_population_size": 116,
+      "total_creatures_created": 6403,
+      "database_path": "run6a_kennels\\simulation_run_008_seed_9007.db"
+    },
+    {
+      "run_number": 9,
+      "seed": 9008,
+      "runtime_seconds": 73.70509060006589,
+      "final_generation": 303,
+      "final_population_size": 118,
+      "total_creatures_created": 6374,
+      "database_path": "run6a_kennels\\simulation_run_009_seed_9008.db"
+    },
+    {
+      "run_number": 10,
+      "seed": 9009,
+      "runtime_seconds": 77.86384300002828,
+      "final_generation": 303,
+      "final_population_size": 122,
+      "total_creatures_created": 6663,
+      "database_path": "run6a_kennels\\simulation_run_010_seed_9009.db"
+    },
+    {
+      "run_number": 11,
+      "seed": 9010,
+      "runtime_seconds": 75.95041609997861,
+      "final_generation": 303,
+      "final_population_size": 121,
+      "total_creatures_created": 6735,
+      "database_path": "run6a_kennels\\simulation_run_011_seed_9010.db"
+    },
+    {
+      "run_number": 12,
+      "seed": 9011,
+      "runtime_seconds": 74.65052669984289,
+      "final_generation": 303,
+      "final_population_size": 114,
+      "total_creatures_created": 6451,
+      "database_path": "run6a_kennels\\simulation_run_012_seed_9011.db"
+    },
+    {
+      "run_number": 13,
+      "seed": 9012,
+      "runtime_seconds": 75.24528870009817,
+      "final_generation": 303,
+      "final_population_size": 125,
+      "total_creatures_created": 7475,
+      "database_path": "run6a_kennels\\simulation_run_013_seed_9012.db"
+    },
+    {
+      "run_number": 14,
+      "seed": 9013,
+      "runtime_seconds": 68.64415780012496,
+      "final_generation": 303,
+      "final_population_size": 12,
+      "total_creatures_created": 4276,
+      "database_path": "run6a_kennels\\simulation_run_014_seed_9013.db"
+    },
+    {
+      "run_number": 15,
+      "seed": 9014,
+      "runtime_seconds": 73.66547640017234,
+      "final_generation": 303,
+      "final_population_size": 126,
+      "total_creatures_created": 6515,
+      "database_path": "run6a_kennels\\simulation_run_015_seed_9014.db"
+    }
+  ]
+}

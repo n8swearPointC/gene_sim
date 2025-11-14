@@ -6,6 +6,7 @@ to enable statistical analysis of results.
 """
 
 import argparse
+import sys
 import time
 import yaml
 import json
@@ -14,6 +15,9 @@ from datetime import datetime
 from typing import List, Dict
 import tempfile
 import sqlite3
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gene_sim.simulation import Simulation
 

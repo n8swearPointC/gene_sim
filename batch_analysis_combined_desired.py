@@ -1,12 +1,6 @@
 """
 Combined batch analysis script - DESIRED POPULATION ONLY version.
 
-DEPRECATED: Use batch_analysis_unified.py instead.
-    python batch_analysis_unified.py --combined-desired <kennel_dir> <mill_dir> <output_dir>
-
-This script is maintained for backward compatibility but the unified interface
-provides better usability and consistent argument handling.
-
 Creates comparison charts for kennels vs mills, but calculates undesirable trait
 frequencies ONLY among creatures that have ALL desired phenotypes.
 
@@ -26,21 +20,6 @@ from batch_analysis import create_combined_charts_desired_only
 
 def main():
     """Main function for combined analysis - desired population only."""
-    
-    # Print deprecation warning
-    print("\n" + "!"*80)
-    print("DEPRECATION WARNING")
-    print("!"*80)
-    print("\nThis script (batch_analysis_combined_desired.py) is deprecated.")
-    print("Please use the unified interface instead:")
-    print()
-    print("  python batch_analysis_unified.py --combined-desired <kennel_dir> <mill_dir> <output_dir> [--aggregate method]")
-    print()
-    print("Example:")
-    print("  python batch_analysis_unified.py --combined-desired run4/run4a_kennels run4/run4b_mills run4/combined_desired")
-    print()
-    print("Continuing with legacy behavior...")
-    print("!"*80 + "\n")
     
     if len(sys.argv) < 4:
         print("Usage: python batch_analysis_combined_desired.py <kennel_dir> <mill_dir> <output_dir> [aggregate_method]")
